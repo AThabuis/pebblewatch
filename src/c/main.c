@@ -24,6 +24,7 @@ Good luck and have fun!
 // Include Pebble library
 #include <pebble.h>
 
+
 // Declare the main window and two text layers
 Window *main_window;
 TextLayer *background_layer;
@@ -34,22 +35,75 @@ TextLayer *helloWorld_layer;
 /*AJOUT start-----------------------------------------------------------------*/
 //Function called when "num_samples" accelerometer samples are ready
 static void accel_data_handler(AccelData *data, uint32_t num_samples)
-{
-    //Read samples 0's x, y and z values
+{ 
+    static int16_t last_value1 = 0;  //second last value for the mobile mean for the last call
+    static int16_t last_value2 = 0; //last value for the mobile mean for the last call 
+    
+  
+    int16_t future_value1 = 0;
+    int16_t future_value2 = 0; //pour ne pas écraser les données, dû au sens de rotation du buffer
+  
+    int mag = 0;
+    int16_t data_mag[num_samples];
+    uint16_t i = 0;
+  
+    
+    for(i=0; i<num_samples; i++)
+    {
+        data_mag[i] = (data[i].x)*(data[i].x) + (data[i].y)*(data[i].y) + (data[i].z)*(data[i].z);
+    }
+  
+    future_value1 = data_mag[num_samples - 2];//second-last data of the table
+    future_value2 = data_mag[num_samples - 1];//last data of the table
+  
+    for(i=0; i<=num_samples; i++)
+    {
+      /*La moyenne mobile part du dernier élément du buffer actuel pour aller à son premier élément.
+      La moyenne se faisant sur 3 éléments, lorsque l'on se trouve dans le haut (2ème puis premier 
+      élément) on utilise les deux derniers éléments du précédent buffer (nommé last_value1/2) pour 
+      effectuer la moyenne */
+      if(i<(num_samples - 3))//dans le "bas" du buffer
+      {
+         data_mag[num_samples-1 -i]=
+            (data_mag[num_samples-1 -i] + data_mag[num_samples-1 -(i+1)] + data_mag[num_samples-1 -(i+2)]) / 3;
+      }
+      else if(i == (num_samples - 2))//Deuxième élément du tableau
+      {
+          data_mag[num_samples-1 -i]=
+            (data_mag[num_samples-1 -i] + data_mag[num_samples-1 -(i+1)] + last_value1) / 3;
+      }
+      else//Au niveau du premier élément
+      {
+          data_mag[num_samples-1 -i]=
+            (data_mag[num_samples-1 -i] + last_value1 + last_value2) / 3;
+      }
+    }
+    
+    //On attribut les deux dernières valeurs de l'ancien buffer sauvegardées à last_value
+    last_value1=future_value1;
+    last_value2=future_value2;
+    
+  //magnitude a pour valeur le dernier élément du tableau
+    mag = data_mag[num_samples-1];
+    
+ /*   //ancien code pour afficher juste les coordonnées
+  //Read samples 0's x, y and z values
     int16_t x = data[0].x;
     int16_t y = data[0].y;
     int16_t z = data[0].z;
+    int16_t mag = x*x +y*y+ z*z;*/
   
     //tab of chars to print the results on the watch
     static char results[60];
   
     //Print the results in the LOG
-    APP_LOG(APP_LOG_LEVEL_INFO, "x : %d, \ny : %d,\n z : %d",x, y, z);
-  
+    APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%d",mag);
+  //APP_LOG(APP_LOG_LEVEL_INFO, "x : %d, \ny : %d,\n z : %d, mag : %d",x, y, z, mag); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
-    snprintf(results, 60, "x : %d, \ny : %d,\n z : %d",x, y, z);
-    text_layer_set_text(helloWorld_layer, results);
+    snprintf(results, 60, "Magnitude : \n%d",mag);
+   // snprintf(results, 60, "x : %d, \ny : %d,\n z : %d, mag : %d",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
+  text_layer_set_text(helloWorld_layer, results);
 }
 /*AJOUT end---------------------------------------------------------------------------*/
 
@@ -100,7 +154,7 @@ static void init(void) {
     accel_data_service_subscribe(num_samples, accel_data_handler);
     
     //Define accelerometer sampling rate
-    accel_service_set_sampling_rate(ACCEL_SAMPLING_25HZ);
+    accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
   /*AJOUT end----------------------------------------------------------------------------*/
 }
 
@@ -129,3 +183,4 @@ int main(void) {
     app_event_loop();
     deinit();
 }
+
