@@ -33,8 +33,8 @@ tt = t_start:dt:t_end-dt;
 [ydata,ty] = resample(ydata_200Hz, t, Fs);
 [zdata,tz] = resample(zdata_200Hz, t, Fs);
 
-u_l = ones(size(left_foot)); 
-u_r = ones(size(right_foot)); 
+u_l = zeros(size(left_foot)); 
+u_r = zeros(size(right_foot)); 
 
 % Compute moving average mean
 avr_pnts = 2;
@@ -76,8 +76,14 @@ disp('right foot frequency [Hz]:'); disp(r_step_f);
 % figure;
 % plot(f,2*abs(Y(1:NFFT/2+1)));
 
-t_start_fft = 34; % start time for fft in sec
+window_start = 0.5;
+window_end = 5;
+
 t_tot_fft   = 5;  % total time for fft in sec
+kk_max = floor(t_end/t_tot_fft);
+
+for kk = 0:kk_max
+t_start_fft = kk*5; % start time for fft in sec
 
 id_s = find(ty < t_start_fft + 1e-2 & ty > t_start_fft - 1e-2);
 t_s = ty(id_s);
@@ -99,12 +105,22 @@ id_e = find(ty == t_e);
 %Y = fft(data_norm_sq_mean(id_s:id_e), NFFT)/L;
 %f = Fs/2*linspace(0,1,NFFT/2+1);
 
-%L = length(data_norm_sq(id_s:id_e));
-%NFFT = 2^nextpow2(L);
-%Y = fft(data_norm_sq(id_s:id_e), NFFT)/L;
-%f = Fs/2*linspace(0,1,NFFT/2+1);
+L = length(data_norm_sq(id_s:id_e));
+NFFT = 2^nextpow2(L);
+Y = fft(data_norm_sq(id_s:id_e), NFFT)/L;
+
+f = Fs/2*linspace(0,1,NFFT/2+1);
 
 % Plot fft
 figure;
-plot(f,2*abs(Y(1:NFFT/2+1)));
+stem(f,2*abs(Y(1:NFFT/2+1))); hold on;
 title('FFT for a small amount of samples squared norm of smoothed');
+plot([f(1),f(end)],[0.3,0.3]);
+
+plot([window_start,window_end],[0,0],'k','LineWidth',2); plot([window_start,window_end],[1,1],'k','LineWidth',2);
+plot([window_start,window_start],[0,1],'k','LineWidth',2); plot([window_end,window_end],[0,1],'k','LineWidth',2);
+
+disp(t_start_fft);
+pause;
+%close all;
+end
