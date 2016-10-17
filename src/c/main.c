@@ -25,55 +25,59 @@ Good luck and have fun!
 #include <pebble.h>
 
 
+
 // Declare the main window and two text layers
 Window *main_window;
 TextLayer *background_layer;
-TextLayer *helloWorld_layer;
+TextLayer *pedometer_layer;
 
 
 
 static void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
 {
-    static int16_t last_value1 = 0;  //second last value for the mobile mean for the last call
-    static int16_t last_value2 = 0; //last value for the mobile mean for the last call 
+    static int32_t last_value1 = 0;  //second last value for the mobile mean for the last call
+    static int32_t last_value2 = 0; //last value for the mobile mean for the last call 
     
+    int32_t future_value1 = 0;
+    int32_t future_value2 = 0; //pour ne pas écraser les données, dû au sens de rotation du buffer
   
-    int16_t future_value1 = 0;
-    int16_t future_value2 = 0; //pour ne pas écraser les données, dû au sens de rotation du buffer
-  
-    //int16_t mag = 0;
-    int16_t data_mag[num_samples];
+    int32_t data_mag[num_samples];
     uint16_t i = 0;
   
-    
-    for(i=0; i<num_samples; i++)
+    //use of abs() because oddly the multiplication keeps the sign of the variable here
+    for(i=0; i<num_samples; i++)//we make a tabble of magnitude
     {
-        data_mag[i] = abs((data[i].x)*(data[i].x)) + abs((data[i].y)*(data[i].y)) + abs((data[i].z)*(data[i].z));
+        /*data_mag[i] = (int32_t) sqrt((abs((data[i].x)*(data[i].x)) 
+                                   + abs((data[i].y)*(data[i].y)) 
+                                   + abs((data[i].z)*(data[i].z))) / 3);*/
+        data_mag[i] = abs((data[i].x)*(data[i].x)) 
+                                   + abs((data[i].y)*(data[i].y)) 
+                                   + abs((data[i].z)*(data[i].z));
     }
   
     future_value1 = data_mag[num_samples - 2];//second-last data of the table
     future_value2 = data_mag[num_samples - 1];//last data of the table
   
-    for(i=0; i<=num_samples; i++)
+    for(i=0; i<num_samples; i++)
     {
-      /*La moyenne mobile part du dernier élément du buffer actuel pour aller à son premier élément.
-      La moyenne se faisant sur 3 éléments, lorsque l'on se trouve dans le haut (2ème puis premier 
+      /*La moyenne mobile part du premier élément du buffer actuel pour aller au dernier élément.
+      La moyenne se faisant sur 3 éléments, lorsque l'on se trouve dans le haut (Premier élément puis le second 
       élément) on utilise les deux derniers éléments du précédent buffer (nommé last_value1/2) pour 
       effectuer la moyenne */
-      if(i<(num_samples - 3))//dans le "bas" du buffer
+      if(i==0)//1er élément du buffer (moy avec les deux dernières valeurs de l'ancien buffer)
       {
-         data_mag[num_samples-1 -i]=
-            (data_mag[num_samples-1 -i] + data_mag[num_samples-1 -(i+1)] + data_mag[num_samples-1 -(i+2)]) / 3;
+         data_mag[0]=
+            (last_value1 + last_value2 + data_mag[0]) / 3;
       }
-      else if(i == (num_samples - 2))//Deuxième élément du tableau
+      else if(i == 1)//2eme élément du buffer (moy avec la dernière valeur de l'ancien buffer et le premier élément du buffer actuel)
       {
-          data_mag[num_samples-1 -i]=
-            (data_mag[num_samples-1 -i] + data_mag[num_samples-1 -(i+1)] + last_value1) / 3;
+          data_mag[1]=
+            (last_value2  + data_mag[0] + data_mag[1]) / 3;
       }
-      else//Au niveau du premier élément
+      else//Pour le reste du buffer
       {
-          data_mag[num_samples-1 -i]=
-            (data_mag[num_samples-1 -i] + last_value1 + last_value2) / 3;
+          data_mag[i]=
+            (data_mag[i-2] + data_mag[i-1] + data_mag[i]) / 3;
       }
     }
     
@@ -81,9 +85,11 @@ static void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *m
     last_value1=future_value1;
     last_value2=future_value2;  
   
+  
     //magnitude a pour valeur le dernier élément du tableau
     *mag = data_mag[num_samples-1];
 }
+
 
 
 
@@ -97,25 +103,24 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
     mobile_mean_accel(data,num_samples,&mag);
   
   
-    //ancien code pour afficher juste les coordonnées
+    //ancien code pour afficher juste les coordonnées au carré
     //Read samples 0's x, y and z values
-    int16_t x = abs(data[0].x);
-    int16_t y = abs(data[0].y);
-    int16_t z = abs(data[0].z);
-    //int16_t mag = x*x +y*y+ z*z;
+    /* int32_t x = abs(data[0].x) * abs(data[0].x);
+    int32_t y = abs(data[0].y) * abs(data[0].y);
+    int32_t z = abs(data[0].z) * abs(data[0].z); */
   
 
     //tab of chars to print the results on the watch
     static char results[60];
   
     //Print the results in the LOG
-    //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %d, y2 : %d,\nz2 : %d\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+    APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
+    //APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
-    //snprintf(results, 60, "Magnitude : \n%lu",mag);
-    snprintf(results, 60, "x2 : %d, y2 : %d,\nz2 : %d\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
-    text_layer_set_text(helloWorld_layer, results);
+    snprintf(results, 60, "Magnitude : \n%lu",mag);
+    //snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
+    text_layer_set_text(pedometer_layer, results);
 }
 
 
@@ -142,18 +147,18 @@ static void init(void) {
 		// Create text Layer
 		//helloWorld_layer = text_layer_create(GRect( 20, 65, 100, 20));
     // Create the TextLayer with specific bounds
-    helloWorld_layer = text_layer_create(
+    pedometer_layer = text_layer_create(
       GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
   
 		// Setup layer Information
-		text_layer_set_background_color(helloWorld_layer, GColorClear);
-		text_layer_set_text_color(helloWorld_layer, GColorWhite);	
-		text_layer_set_font(helloWorld_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  	text_layer_set_text_alignment(helloWorld_layer, GTextAlignmentCenter);
+		text_layer_set_background_color(pedometer_layer, GColorClear);
+		text_layer_set_text_color(pedometer_layer, GColorWhite);	
+		text_layer_set_font(pedometer_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+  	text_layer_set_text_alignment(pedometer_layer, GTextAlignmentCenter);
 
   	// Add layers as childs layers to the Window's root layer
     layer_add_child(window_layer, text_layer_get_layer(background_layer));
-	  layer_add_child(window_layer, text_layer_get_layer(helloWorld_layer));
+	  layer_add_child(window_layer, text_layer_get_layer(pedometer_layer));
   
   	// Show the window on the watch, with animated = true
   	window_stack_push(main_window, true);
@@ -185,7 +190,7 @@ static void deinit(void) {
     
     // Destroy layers and main window 
     text_layer_destroy(background_layer);
-	  text_layer_destroy(helloWorld_layer);
+	  text_layer_destroy(pedometer_layer);
     window_destroy(main_window);
 }
 
