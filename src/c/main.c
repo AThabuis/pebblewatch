@@ -32,10 +32,8 @@ TextLayer *helloWorld_layer;
 
 
 
-/*AJOUT start-----------------------------------------------------------------*/
-//Function called when "num_samples" accelerometer samples are ready
-static void accel_data_handler(AccelData *data, uint32_t num_samples)
-{ 
+static void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
+{
     static int16_t last_value1 = 0;  //second last value for the mobile mean for the last call
     static int16_t last_value2 = 0; //last value for the mobile mean for the last call 
     
@@ -43,14 +41,14 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
     int16_t future_value1 = 0;
     int16_t future_value2 = 0; //pour ne pas écraser les données, dû au sens de rotation du buffer
   
-    int mag = 0;
+    //int16_t mag = 0;
     int16_t data_mag[num_samples];
     uint16_t i = 0;
   
     
     for(i=0; i<num_samples; i++)
     {
-        data_mag[i] = (data[i].x)*(data[i].x) + (data[i].y)*(data[i].y) + (data[i].z)*(data[i].z);
+        data_mag[i] = abs((data[i].x)*(data[i].x)) + abs((data[i].y)*(data[i].y)) + abs((data[i].z)*(data[i].z));
     }
   
     future_value1 = data_mag[num_samples - 2];//second-last data of the table
@@ -81,31 +79,48 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
     
     //On attribut les deux dernières valeurs de l'ancien buffer sauvegardées à last_value
     last_value1=future_value1;
-    last_value2=future_value2;
-    
-  //magnitude a pour valeur le dernier élément du tableau
-    mag = data_mag[num_samples-1];
-    
- /*   //ancien code pour afficher juste les coordonnées
-  //Read samples 0's x, y and z values
-    int16_t x = data[0].x;
-    int16_t y = data[0].y;
-    int16_t z = data[0].z;
-    int16_t mag = x*x +y*y+ z*z;*/
+    last_value2=future_value2;  
   
+    //magnitude a pour valeur le dernier élément du tableau
+    *mag = data_mag[num_samples-1];
+}
+
+
+
+
+
+
+//Function called when "num_samples" accelerometer samples are ready
+static void accel_data_handler(AccelData *data, uint32_t num_samples)
+{ 
+    uint32_t mag = 0;  
+    mobile_mean_accel(data,num_samples,&mag);
+  
+  
+    //ancien code pour afficher juste les coordonnées
+    //Read samples 0's x, y and z values
+    int16_t x = abs(data[0].x);
+    int16_t y = abs(data[0].y);
+    int16_t z = abs(data[0].z);
+    //int16_t mag = x*x +y*y+ z*z;
+  
+
     //tab of chars to print the results on the watch
     static char results[60];
   
     //Print the results in the LOG
-    APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%d",mag);
-  //APP_LOG(APP_LOG_LEVEL_INFO, "x : %d, \ny : %d,\n z : %d, mag : %d",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+    //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
+    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %d, y2 : %d,\nz2 : %d\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
-    snprintf(results, 60, "Magnitude : \n%d",mag);
-   // snprintf(results, 60, "x : %d, \ny : %d,\n z : %d, mag : %d",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
-  text_layer_set_text(helloWorld_layer, results);
+    //snprintf(results, 60, "Magnitude : \n%lu",mag);
+    snprintf(results, 60, "x2 : %d, y2 : %d,\nz2 : %d\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
+    text_layer_set_text(helloWorld_layer, results);
 }
-/*AJOUT end---------------------------------------------------------------------------*/
+
+
+
+
 
 
 
@@ -133,7 +148,7 @@ static void init(void) {
 		// Setup layer Information
 		text_layer_set_background_color(helloWorld_layer, GColorClear);
 		text_layer_set_text_color(helloWorld_layer, GColorWhite);	
-		text_layer_set_font(helloWorld_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));//change 18 --> 14
+		text_layer_set_font(helloWorld_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
   	text_layer_set_text_alignment(helloWorld_layer, GTextAlignmentCenter);
 
   	// Add layers as childs layers to the Window's root layer
@@ -146,8 +161,8 @@ static void init(void) {
     // Add a logging meassage (for debug)
 	  APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");
     
-  /*AJOUT start-----------------------------------------------------------------------*/
-    
+  
+    //****************************************************************
     uint32_t num_samples = 25;
   
     //Allow accelerometer event
@@ -155,7 +170,6 @@ static void init(void) {
     
     //Define accelerometer sampling rate
     accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
-  /*AJOUT end----------------------------------------------------------------------------*/
 }
 
 
