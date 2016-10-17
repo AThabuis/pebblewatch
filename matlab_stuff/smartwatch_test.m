@@ -1,7 +1,7 @@
 clc; clear all; close all;
 
 % Loads data file
-load('Data_Matlab_TP/dataTP1.mat');
+load('Data_Matlab_TP/dataTP2.mat');
 
 % Get x,y,z datas at 200 Hz
 xdata_200Hz = dataTP.data(:,1);
@@ -33,6 +33,9 @@ tt = t_start:dt:t_end-dt;
 [ydata,ty] = resample(ydata_200Hz, t, Fs);
 [zdata,tz] = resample(zdata_200Hz, t, Fs);
 
+% get time of each step
+t_left  = t(left_foot);
+t_right = t(right_foot);
 u_l = zeros(size(left_foot)); 
 u_r = zeros(size(right_foot)); 
 
@@ -56,17 +59,10 @@ data_norm_sq_mean = xdata_unbiased.^2+ydata_unbiased.^2+zdata_unbiased.^2;
 figure;
 plot(tx, data_norm_sq,'r'); hold on;
 plot(tx, data_norm_sq_mean,'k');
-plot(t(left_foot),u_l, 'xr');
-plot(t(right_foot),u_r, '+b');
+plot(t_left,u_l, 'xr');
+plot(t_right,u_r, '+b');
 hold off;
 legend('norm squared','norm squared of averaged data');
-
-% Steps frequencies - change this... (if guys stops then freq changes)
-l_step_f = length(left_foot)/(t(left_foot(end))-t(left_foot(1)));
-r_step_f = length(right_foot)/(t(right_foot(end))-t(right_foot(1)));
-
-disp('left foot frequency [Hz]:'); disp(l_step_f);
-disp('right foot frequency [Hz]:'); disp(r_step_f);
 
 % L = length(data_smooth(2:end));
 % NFFT = 2^nextpow2(L);
@@ -83,7 +79,7 @@ t_tot_fft   = 5;  % total time for fft in sec
 kk_max = floor(t_end/t_tot_fft);
 
 for kk = 0:kk_max
-t_start_fft = kk*5; % start time for fft in sec
+t_start_fft = kk*t_tot_fft; % start time for fft in sec
 
 id_s = find(ty < t_start_fft + 1e-2 & ty > t_start_fft - 1e-2);
 t_s = ty(id_s);
@@ -98,6 +94,25 @@ end
 
 t_e = ty(end-k);
 id_e = find(ty == t_e);
+
+id_left  = find(t_left > t_s & t_left < t_e);
+id_right = find(t_right > t_s & t_right < t_e);
+
+if length(id_left) > 1
+    l_step_f = (length(id_left)-1)/(t_left(id_left(end))-t_left(id_left(1)));
+else
+    l_step_f = 0; % modify this - use previous or next step to compute freq
+end
+
+if length(id_right) > 1
+    r_step_f = (length(id_right)-1)/(t_right(id_right(end))-t_right(id_right(1)));
+else
+    r_step_f = 0; % modify this - use previous or next step to compute freq
+end
+
+step_f = (length(id_left)+length(id_right)-1)/...
+         (max(t_left(id_left(end)),t_right(id_right(end)))- ...
+          min(t_left(id_left(1)),t_right(id_right(1))));
 
 % Computes fft for t_tot_fft time of samples
 %L = length(data_norm_sq_mean(id_s:id_e));
@@ -120,6 +135,15 @@ plot([f(1),f(end)],[0.3,0.3]);
 plot([window_start,window_end],[0,0],'k','LineWidth',2); plot([window_start,window_end],[1,1],'k','LineWidth',2);
 plot([window_start,window_start],[0,1],'k','LineWidth',2); plot([window_end,window_end],[0,1],'k','LineWidth',2);
 
+plot([l_step_f,l_step_f],[0, max(abs(Y))],'r-');
+plot([r_step_f,r_step_f],[0, max(abs(Y))],'b-.');
+plot([step_f,step_f]    ,[0, max(abs(Y))*0.75],'m-x');
+
+text(l_step_f,max(abs(Y)),strcat('  l: ',num2str(l_step_f)),'VerticalAlignment','top');
+text(r_step_f,max(abs(Y)),strcat('  r: ',num2str(r_step_f)),'VerticalAlignment','bottom');
+text(step_f  ,max(abs(Y))*0.75,strcat('  b: ',num2str(step_f))  ,'VerticalAlignment','top');
+
+hold off;
 disp(t_start_fft);
 pause;
 %close all;
