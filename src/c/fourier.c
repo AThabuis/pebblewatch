@@ -8,6 +8,7 @@
         fr[n],fi[n] are real,imaginary arrays, INPUT AND RESULT.
         size of data = 2**m
         set inverse to 0=dft, 1=idft
+        f_mod is a table with the 
 */
 int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse,int bloc)
 {
@@ -108,71 +109,6 @@ fix_mpy(wi,fr[(bloc+j) % TAILLE_TAB]);
         }
 
         return scale;
-}
-
-
-/*      window() - apply a Hanning window       */
-void window(fixed fr[], int n)
-{
-        int i,j,k;
-
-        j = N_WAVE/n;
-        n >>= 1;
-        for(i=0,k=N_WAVE/4; i<n; ++i,k+=j)
-                FIX_MPY(fr[i],fr[i],16384-(Sinewave[k]>>1));
-        n <<= 1;
-        for(k-=j; i<n; ++i,k-=j)
-                FIX_MPY(fr[i],fr[i],16384-(Sinewave[k]>>1));
-}
-
-/*      fix_loud() - compute loudness of freq-spectrum components.
-        n should be ntot/2, where ntot was passed to fix_fft();
-        6 dB is added to account for the omitted alias components.
-        scale_shift should be the result of fix_fft(), if the time-series
-        was obtained from an inverse FFT, 0 otherwise.
-        loud[] is the loudness, in dB wrt 32767; will be +10 to -N_LOUD.
-*/
-void fix_loud(fixed loud[], fixed fr[], fixed fi[], int n, int scale_shift)
-{
-        int i, max;
-
-        max = 0;
-        if(scale_shift > 0)
-                max = 10;
-        scale_shift = (scale_shift+1) * 6;
-
-        for(i=0; i<n; ++i) {
-                loud[i] = db_from_ampl(fr[i],fi[i]) + scale_shift;
-                if(loud[i] > max)
-                        loud[i] = max;
-        }
-}
-
-/*      db_from_ampl() - find loudness (in dB) from
-        the complex amplitude.
-*/
-int db_from_ampl(fixed re, fixed im)
-{
-        static long loud2[N_LOUD] = {0};
-        long v;
-        int i;
-
-        if(loud2[0] == 0) {
-                loud2[0] = (long)Loudampl[0] * (long)Loudampl[0];
-                for(i=1; i<N_LOUD; ++i) {
-                        v = (long)Loudampl[i] * (long)Loudampl[i];
-                        loud2[i] = v;
-                        loud2[i-1] = (loud2[i-1]+v) / 2;
-                }
-        }
-
-        v = (long)re * (long)re + (long)im * (long)im;
-
-        for(i=0; i<N_LOUD; ++i)
-                if(loud2[i] <= v)
-                        break;
-
-        return (-i);
 }
 
 /*
