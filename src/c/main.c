@@ -31,8 +31,31 @@ Window *main_window;
 TextLayer *background_layer;
 TextLayer *first_layer;
 TextLayer *second_layer;
-BitmapLayer *batman_layer;
+static BitmapLayer *batman_layer;
 static GBitmap* batman;
+
+static GBitmapSequence *s_sequence;
+static GBitmap *s_bitmap;
+static BitmapLayer *s_bitmap_layer;
+
+static void timer_handler(void *context)
+{
+  uint32_t next_delay;
+
+  // Advance to the next APNG frame, and get the delay for this frame
+  if(gbitmap_sequence_update_bitmap_next_frame(s_sequence, s_bitmap, &next_delay))
+  {
+    // Set the new frame into the BitmapLayer
+    bitmap_layer_set_bitmap(s_bitmap_layer, s_bitmap);
+    layer_mark_dirty(bitmap_layer_get_layer(s_bitmap_layer));
+    
+    APP_LOG(APP_LOG_LEVEL_INFO, "YOP");
+    
+    // Timer for that frame's delay
+    app_timer_register(next_delay, timer_handler, NULL);
+  }
+}
+
 
 
 
@@ -135,10 +158,15 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
     // A single click has just occured
     APP_LOG(APP_LOG_LEVEL_INFO, "Select");
     
+    uint32_t first_delay_ms = 10;
+
+    // Schedule a timer to advance the first frame
+    app_timer_register(first_delay_ms, timer_handler, NULL);
+    
     layer_set_hidden(text_layer_get_layer(background_layer), true);
     layer_set_hidden(text_layer_get_layer(first_layer), true);
     layer_set_hidden(text_layer_get_layer(second_layer), true);
-    layer_set_hidden(bitmap_layer_get_layer(batman_layer), false);
+    //layer_set_hidden(bitmap_layer_get_layer(batman_layer), false);
   }
   static void select_click_handler_up(ClickRecognizerRef recognizer, void *context) {
     // A single click has just occured
@@ -190,7 +218,14 @@ static void init(void) {
 		// Setup background layer color (black)
 		text_layer_set_background_color(background_layer, GColorBlack);
 
+    batman = gbitmap_create_with_resource(RESOURCE_ID_BATMAN);
+    
+    // Create sequence
+    s_sequence = gbitmap_sequence_create_with_resource(RESOURCE_ID_BATMAN_A);
   
+    // Create blank GBitmap using APNG frame size
+    GSize frame_size = gbitmap_sequence_get_bitmap_size(s_sequence);
+    s_bitmap = gbitmap_create_blank(frame_size, GBitmapFormat8Bit);
   
 		// Create text Layer
 		//helloWorld_layer = text_layer_create(GRect( 20, 65, 100, 20));
@@ -202,7 +237,7 @@ static void init(void) {
       GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
   
     batman_layer = bitmap_layer_create(
-      GRect(5,5,48,48));
+      GRect(10,10,88,50));
     bitmap_layer_set_compositing_mode(batman_layer, GCompOpSet);
     bitmap_layer_set_bitmap(batman_layer,batman);
   
@@ -225,9 +260,7 @@ static void init(void) {
 	  layer_add_child(window_layer, text_layer_get_layer(first_layer));
     layer_add_child(window_layer, text_layer_get_layer(second_layer));
     layer_add_child(window_layer, bitmap_layer_get_layer(batman_layer));
-  
-    gbitmap_create_with_resource(RESOURCE_ID_BATMAN);
-  
+    
     char first[60] = "First";
     text_layer_set_text(first_layer, first);
     char second[60] = "Second";
@@ -268,6 +301,10 @@ static void deinit(void) {
     text_layer_destroy(background_layer);
 	  text_layer_destroy(first_layer);
     text_layer_destroy(second_layer);
+    
+    gbitmap_destroy(batman);
+    bitmap_layer_destroy(batman_layer);
+  
     window_destroy(main_window);
 }
 
