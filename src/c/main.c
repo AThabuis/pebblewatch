@@ -34,7 +34,7 @@ TextLayer *pedometer_layer;
 //Function called when "num_samples" accelerometer samples are ready
 static void accel_data_handler(AccelData *data, uint32_t num_samples)
 { 
-    int16_t mag = 0;  
+    static int16_t mag = 0;  
     mobile_mean_accel(data,num_samples,&mag);
   
   
