@@ -9,7 +9,7 @@
         size of data = 2**m
         set inverse to 0=dft, 1=idft
 */
-int fix_fft(fixed fr[], fixed fi[], int m, int inverse)
+int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse)
 {
         int mr,nn,i,j,l,k,istep, n, scale, shift;
         fixed qr,qi,tr,ti,wr,wi;
@@ -97,6 +97,8 @@ fix_mpy(wi,fr[j]);
                                 fi[j] = qi - ti;
                                 fr[i] = qr + tr;
                                 fi[i] = qi + ti;
+                                f_mod[i] = (((int32_t)(fr[i]) * (int32_t)(fr[i]))>>15) + 
+                                  (((int32_t)(fi[i]) * (int32_t)(fi[i]))>>15);
                         }
                 }
                 --k;
