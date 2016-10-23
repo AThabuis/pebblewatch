@@ -21,12 +21,14 @@ Date: 09.2016
 // Include Pebble library
 #include <pebble.h>
 #include "mobile_mean_accel.h"
+#include "fourier.h"
 
 #define SIZE_BUFFER 128; 
 #define SAMPLE_RATE 25;	
 #define ID_05 4 //indice du tableau de module de fréquence qui correspond à la premiepre fréquence au dessus de 0.5Hz (0.7812 Hz)
 #define ID_35 18	
 #define THRESHOLD 676 //10000*0.26.^2 Threshold de fréquence minimum // déterminé expérimentalement
+#define M 7			// 128 = 2^7; 
 
 // Declare the main window and two text layers
 Window *main_window;
@@ -34,9 +36,12 @@ TextLayer *background_layer;
 TextLayer *pedometer_layer;
 
 // Variables globales 
-int16_t mag_128[128]={0}; 	// Tableau des magnitudes 
-uint16_t gbloc = 0;			// point de départ du tableau
+short mag_128[128]={0}; 	// Tableau des magnitudes 
+short gbloc = 0;			// point de départ du tableau
 const float df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
+unsigned short Y_freq[128];
+short fi[128];
+
 
 // Fonction qui calcule la bonne fréquence après la FFT
 // Prend en argument le tableau des modules de FFT
@@ -69,7 +74,7 @@ static int16_t freq_calculator(int32_t Y_freq)
   	//S'il n'a qu'un seul pic, c'est celui-ci le bon
   	if(L_peak == 1)
 		{
-			right_freq = df*ipeak[0]*10000;
+			right_freq = df*10000*ipeak[0];
 		}
   	else if(L_peak >1) 
 			{
@@ -85,7 +90,7 @@ static int16_t freq_calculator(int32_t Y_freq)
 					}
 				}
       	// Initialisation de la bonne fréquence à celle maximum
-      	right_freq = df*imax_peak*10000;
+      	right_freq = df*10000*imax_peak;
 			
 				// Taille des pics accepté à 40%
 				uint16_t Y_max = 0.4*Y_freq[imax_peak];
@@ -99,7 +104,7 @@ static int16_t freq_calculator(int32_t Y_freq)
           	// S'il y en a une, c'est elle la bonne fréquence
           	if(2*imax_peak-ipeak[k] < 2)
 						{
-          		right_freq = df*ipeak[k]*10000;
+          		right_freq = df*10000*ipeak[k];
 						}               
 					}
 				}
@@ -107,7 +112,8 @@ static int16_t freq_calculator(int32_t Y_freq)
 			}
 	}
 	else right_freq = 0;
-	 
+	
+	
 	return right_freq; 
 }
 
@@ -128,9 +134,10 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 		
     for(i=0; i<num_samples; i++)//we make a tabble of magnitude
     {
-        mag_128[i+bloc] = abs((data[i].x)*(data[i].x)) 
-                                   + abs((data[i].y)*(data[i].y)) 
-                                   + abs((data[i].z)*(data[i].z));
+			uint32_t temp = (data[i].x)*(data[i].x)
+                                   + (data[i].y)*(data[i].y) 
+                                   + (data[i].z)*(data[i].z);
+					mag_128[i+bloc] = (short)temp>>11; 
     }
 		
 		// Se déplace de 32 cases sans jamais dépasser 127
@@ -138,13 +145,17 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 		bloc%=128; 
 		
 		// Appel FFT sur 128
-		int32_t Y_freq	// Tableau des modules de FFT
+		int i=0;
+    for(i=0;i<128;i++)
+		{
+				fi[i]=0;
+		}
 		
+		fix_fft(Y_freq, mag_128, fi, M, 0, bloc);
+			
 		// Calcule de la bonne fréquence 
-		int16_t right_freq = freq_calculator(Y_freq)
-		
-		
-		
+		int16_t right_freq = freq_calculator(Y_freq);
+	
     //tab of chars to print the results on the watch
     static char results[60];
   
