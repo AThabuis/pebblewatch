@@ -1,12 +1,11 @@
 /*---------------------------------------------------------------------------
 Template for TP of the course "System Engineering" 2016, EPFL
 
-Authors: Flavien Bardyn & Martin Savary
+Authors: Adrien Thabuis & Antoine Laurens
 Version: 1.0
-Date: 10.08.2016
+Date: 09.2016
 
-Use this "HelloWorld" example as basis to code your own app, which should at least 
-count steps precisely based on accelerometer data. 
+
 
 - Add the accelerometer data acquisition
 - Implement your own pedometer using these data
@@ -17,81 +16,17 @@ count steps precisely based on accelerometer data.
 - Try to use your imagination and not google (we already did it, and it's disappointing!)
   to offer us a smart and original solution of pedometer
 
-Don't hesitate to ask us questions.
-Good luck and have fun!
 ---------------------------------------------------------------------------*/
 
 // Include Pebble library
 #include <pebble.h>
-#include <Fourier.h>
+#include "mobile_mean_accel.h"
 
 
 // Declare the main window and two text layers
 Window *main_window;
 TextLayer *background_layer;
 TextLayer *pedometer_layer;
-
-
-
-static void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
-{
-    static int32_t last_value1 = 0;  //second last value for the mobile mean for the last call
-    static int32_t last_value2 = 0; //last value for the mobile mean for the last call 
-    
-    int32_t future_value1 = 0;
-    int32_t future_value2 = 0; //pour ne pas écraser les données, dû au sens de rotation du buffer
-  
-    int32_t data_mag[num_samples];
-    uint16_t i = 0;
-  
-    //use of abs() because oddly the multiplication keeps the sign of the variable here
-    for(i=0; i<num_samples; i++)//we make a tabble of magnitude
-    {
-        /*data_mag[i] = (int32_t) sqrt((abs((data[i].x)*(data[i].x)) 
-                                   + abs((data[i].y)*(data[i].y)) 
-                                   + abs((data[i].z)*(data[i].z))) / 3);*/
-        data_mag[i] = abs((data[i].x)*(data[i].x)) 
-                                   + abs((data[i].y)*(data[i].y)) 
-                                   + abs((data[i].z)*(data[i].z));
-    }
-  
-    future_value1 = data_mag[num_samples - 2];//second-last data of the table
-    future_value2 = data_mag[num_samples - 1];//last data of the table
-  
-    for(i=0; i<num_samples; i++)
-    {
-      /*La moyenne mobile part du premier élément du buffer actuel pour aller au dernier élément.
-      La moyenne se faisant sur 3 éléments, lorsque l'on se trouve dans le haut (Premier élément puis le second 
-      élément) on utilise les deux derniers éléments du précédent buffer (nommé last_value1/2) pour 
-      effectuer la moyenne */
-      if(i==0)//1er élément du buffer (moy avec les deux dernières valeurs de l'ancien buffer)
-      {
-         data_mag[0]=
-            (last_value1 + last_value2 + data_mag[0]) / 3;
-      }
-      else if(i == 1)//2eme élément du buffer (moy avec la dernière valeur de l'ancien buffer et le premier élément du buffer actuel)
-      {
-          data_mag[1]=
-            (last_value2  + data_mag[0] + data_mag[1]) / 3;
-      }
-      else//Pour le reste du buffer
-      {
-          data_mag[i]=
-            (data_mag[i-2] + data_mag[i-1] + data_mag[i]) / 3;
-      }
-    }
-    
-    //On attribut les deux dernières valeurs de l'ancien buffer sauvegardées à last_value
-    last_value1=future_value1;
-    last_value2=future_value2;  
-  
-  
-    //magnitude a pour valeur le dernier élément du tableau
-    *mag = data_mag[num_samples-1];
-}
-
-
-
 
 
 
@@ -105,21 +40,21 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
   
     //ancien code pour afficher juste les coordonnées au carré
     //Read samples 0's x, y and z values
-    /* int32_t x = abs(data[0].x) * abs(data[0].x);
+    int32_t x = abs(data[0].x) * abs(data[0].x);
     int32_t y = abs(data[0].y) * abs(data[0].y);
-    int32_t z = abs(data[0].z) * abs(data[0].z); */
+    int32_t z = abs(data[0].z) * abs(data[0].z);
   
 
     //tab of chars to print the results on the watch
     static char results[60];
   
     //Print the results in the LOG
-    APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    //APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+    //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
+    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
-    snprintf(results, 60, "Magnitude : \n%lu",mag);
-    //snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
+    //snprintf(results, 60, "Magnitude : \n%lu",mag);  
+    snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
     text_layer_set_text(pedometer_layer, results);
 }
 
@@ -193,6 +128,8 @@ static void deinit(void) {
 	  text_layer_destroy(pedometer_layer);
     window_destroy(main_window);
 }
+
+
 
 
 
