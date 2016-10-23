@@ -5,11 +5,11 @@
         fix_fft() - perform fast Fourier transform.
 
         if n>0 FFT is done, if n<0 inverse FFT is done
-        fr[n],fi[n] are real,imaginary arrays, INPUT AND RESULT.
+        fr[bloc+n],fi[bloc+n] are real,imaginary arrays, INPUT AND RESULT.
         size of data = 2**m
         set inverse to 0=dft, 1=idft
 */
-int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse)
+int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse,int bloc)
 {
         int mr,nn,i,j,l,k,istep, n, scale, shift;
         fixed qr,qi,tr,ti,wr,wi;
@@ -32,12 +32,12 @@ int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse)
                 mr = (mr & (l-1)) + l;
 
                 if(mr <= m) continue;
-                tr = fr[m];
-                fr[m] = fr[mr];
-                fr[mr] = tr;
-                ti = fi[m];
-                fi[m] = fi[mr];
-                fi[mr] = ti;
+                tr = fr[(bloc+m) % TAILLE_TAB];
+                fr[(bloc+m) % TAILLE_TAB] = fr[(bloc+mr) % TAILLE_TAB];
+                fr[(bloc+mr) % TAILLE_TAB] = tr;
+                ti = fi[(bloc+m) % TAILLE_TAB];
+                fi[(bloc+m) % TAILLE_TAB] = fi[(bloc+mr) % TAILLE_TAB];
+                fi[(bloc+mr) % TAILLE_TAB] = ti;
         }
 
         l = 1;
@@ -47,10 +47,10 @@ int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse)
                         /* variable scaling, depending upon data */
                         shift = 0;
                         for(i=0; i<n; ++i) {
-                                j = fr[i];
+                                j = fr[(bloc+i) % TAILLE_TAB];
                                 if(j < 0)
                                         j = -j;
-                                m = fi[i];
+                                m = fi[(bloc+i) % TAILLE_TAB];
                                 if(m < 0)
                                         m = -m;
                                 if(j > 16383 || m > 16383) {
@@ -83,22 +83,24 @@ int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse)
                         }
                         for(i=m; i<n; i+=istep) {
                                 j = i + l;
-                                        tr = fix_mpy(wr,fr[j]) -
-fix_mpy(wi,fi[j]);
-                                        ti = fix_mpy(wr,fi[j]) +
-fix_mpy(wi,fr[j]);
-                                qr = fr[i];
-                                qi = fi[i];
+                                        tr = fix_mpy(wr,fr[(bloc+j) % TAILLE_TAB]) -
+fix_mpy(wi,fi[(bloc+j) % TAILLE_TAB]);
+                                        ti = fix_mpy(wr,fi[(bloc+j) % TAILLE_TAB]) +
+fix_mpy(wi,fr[(bloc+j) % TAILLE_TAB]);
+                                qr = fr[(bloc+i) % TAILLE_TAB];
+                                qi = fi[(bloc+i) % TAILLE_TAB];
                                 if(shift) {
                                         qr >>= 1;
                                         qi >>= 1;
                                 }
-                                fr[j] = qr - tr;
-                                fi[j] = qi - ti;
-                                fr[i] = qr + tr;
-                                fi[i] = qi + ti;
-                                f_mod[i] = (((int32_t)(fr[i]) * (int32_t)(fr[i]))>>15) + 
-                                  (((int32_t)(fi[i]) * (int32_t)(fi[i]))>>15);
+                                fr[(bloc+j) % TAILLE_TAB] = qr - tr;
+                                fi[(bloc+j) % TAILLE_TAB] = qi - ti;
+                                fr[(bloc+i) % TAILLE_TAB] = qr + tr;
+                                fi[(bloc+i) % TAILLE_TAB] = qi + ti;
+                                f_mod[(bloc+i) % TAILLE_TAB] = (((int32_t)(fr[(bloc+i) % TAILLE_TAB]) * 
+                                  (int32_t)(fr[(bloc+i) % TAILLE_TAB]))>>15) + 
+                                  (((int32_t)(fi[(bloc+i) % TAILLE_TAB]) * 
+                                    (int32_t)(fi[(bloc+i) % TAILLE_TAB]))>>15);
                         }
                 }
                 --k;
