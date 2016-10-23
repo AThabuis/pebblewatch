@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include "mobile_mean_accel.h"
 
-void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
+void mobile_mean_accel(AccelData *data, uint32_t num_samples, int16_t *mag)
 {
     static int32_t last_value1 = 0;  //second last value for the mobile mean for the last call
     static int32_t last_value2 = 0; //last value for the mobile mean for the last call 
@@ -53,7 +53,6 @@ void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
     last_value1=future_value1;
     last_value2=future_value2;  
   
-  
+    *mag = (data_mag[num_samples-1]) >> 9; //pour etre aux alentours de 2047 à 1G (=32767 / 16)
     //magnitude a pour valeur le dernier élément du tableau
-    *mag = data_mag[num_samples-1];
 }
