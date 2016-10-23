@@ -85,7 +85,7 @@
 #endif
 
 
-int fix_fft(fixed fr[], fixed fi[], int m, int inverse);
+int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse);
 extern fixed Sinewave[N_WAVE]; /* placed at end of this file for clarity */
 extern fixed Loudampl[N_LOUD];
 int db_from_ampl(fixed re, fixed im);
