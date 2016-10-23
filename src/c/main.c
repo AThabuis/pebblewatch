@@ -34,7 +34,7 @@ TextLayer *pedometer_layer;
 //Function called when "num_samples" accelerometer samples are ready
 static void accel_data_handler(AccelData *data, uint32_t num_samples)
 { 
-    uint32_t mag = 0;  
+    static int16_t mag = 0;  
     mobile_mean_accel(data,num_samples,&mag);
   
   
@@ -50,11 +50,11 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
   
     //Print the results in the LOG
     //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
     //snprintf(results, 60, "Magnitude : \n%lu",mag);  
-    snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
+    snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
     text_layer_set_text(pedometer_layer, results);
 }
 

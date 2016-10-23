@@ -1,7 +1,7 @@
 #include <pebble.h>
 #include "mobile_mean_accel.h"
 
-void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
+void mobile_mean_accel(AccelData *data, uint32_t num_samples, int16_t *mag)
 {
     static int32_t last_value1 = 0;  //second last value for the mobile mean for the last call
     static int32_t last_value2 = 0; //last value for the mobile mean for the last call 
@@ -15,12 +15,26 @@ void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
     //use of abs() because oddly the multiplication keeps the sign of the variable here
     for(i=0; i<num_samples; i++)//we make a tabble of magnitude
     {
+        // Determine if the sample occured during vibration, and when it occured
+        bool did_vibrate = data[i].did_vibrate;
+    
+        if(did_vibrate) 
+        {
+          data_mag[i] = (int32_t) mag;
+        } 
+        else 
+        {
+            data_mag[i] = abs((data[i].x)*(data[i].x)) 
+                                   + abs((data[i].y)*(data[i].y)) 
+                                   + abs((data[i].z)*(data[i].z));
+        }
+      
         /*data_mag[i] = (int32_t) sqrt((abs((data[i].x)*(data[i].x)) 
                                    + abs((data[i].y)*(data[i].y)) 
                                    + abs((data[i].z)*(data[i].z))) / 3);*/
-        data_mag[i] = abs((data[i].x)*(data[i].x)) 
+        /*data_mag[i] = abs((data[i].x)*(data[i].x)) 
                                    + abs((data[i].y)*(data[i].y)) 
-                                   + abs((data[i].z)*(data[i].z));
+                                   + abs((data[i].z)*(data[i].z));*/
     }
   
     future_value1 = data_mag[num_samples - 2];//second-last data of the table
@@ -53,7 +67,6 @@ void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
     last_value1=future_value1;
     last_value2=future_value2;  
   
-  
+    *mag = (data_mag[num_samples-1]) >> 9; //pour etre aux alentours de 2047 à 1G (=32767 / 16)
     //magnitude a pour valeur le dernier élément du tableau
-    *mag = data_mag[num_samples-1];
 }
