@@ -77,6 +77,7 @@
 
 #define FIX_MPY(DEST,A,B)       DEST = ((long)(A) * (long)(B))>>15
 
+#define TAILLE_TAB 128
 #define N_WAVE          1024    /* dimension of Sinewave[] */
 #define LOG2_N_WAVE     10      /* log2(N_WAVE) */
 #define N_LOUD          100     /* dimension of Loudampl[] */
@@ -85,7 +86,7 @@
 #endif
 
 
-int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse);
+int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse,int bloc);
 extern fixed Sinewave[N_WAVE]; /* placed at end of this file for clarity */
 extern fixed Loudampl[N_LOUD];
 int db_from_ampl(fixed re, fixed im);
