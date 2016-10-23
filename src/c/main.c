@@ -45,13 +45,9 @@ short fi[128];
 
 // Fonction qui calcule la bonne fréquence après la FFT
 // Prend en argument le tableau des modules de FFT
-static int16_t freq_calculator(int32_t Y_freq)
-{
-	uint16_t sf = 65; 
-	int32_t Y_freq[sf]; // tableau de 65 point contenant les modules FFT. 
-	
+static int16_t freq_calculator(unsigned short* Y_freq)
+{	
 	int32_t ipeak[14]={0}; // tableau contenant les pics principaux
-
 	uint16_t L_peak=0; 		// nombre de pics principaux
 	uint16_t right_freq=0;		// fréquence finale déterminée part la FFT
 	uint16_t imax_peak=0; 	// indice du pic maximum 
@@ -131,41 +127,43 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
     int32_t y = abs(data[0].y) * abs(data[0].y);
     int32_t z = abs(data[0].z) * abs(data[0].z);
   	*/
-		
+		uint16_t i;
+		gbloc = 0;
+	
     for(i=0; i<num_samples; i++)//we make a tabble of magnitude
     {
 			uint32_t temp = (data[i].x)*(data[i].x)
                                    + (data[i].y)*(data[i].y) 
                                    + (data[i].z)*(data[i].z);
-					mag_128[i+bloc] = (short)temp>>11; 
+					mag_128[i+gbloc] = (short)(temp>>11); 
     }
 		
 		// Se déplace de 32 cases sans jamais dépasser 127
-  	bloc+=32;
-		bloc%=128; 
+  	gbloc+=32;
+		gbloc%=128; 
 		
 		// Appel FFT sur 128
-		int i=0;
+		
     for(i=0;i<128;i++)
 		{
 				fi[i]=0;
 		}
 		
-		fix_fft(Y_freq, mag_128, fi, M, 0, bloc);
+		fix_fft(Y_freq, mag_128, fi, M, 0, gbloc);
 			
 		// Calcule de la bonne fréquence 
-		int16_t right_freq = freq_calculator(Y_freq);
+		int ff = freq_calculator(Y_freq);
 	
     //tab of chars to print the results on the watch
     static char results[60];
   
     //Print the results in the LOG
     //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+    APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %u\n",ff); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
     //snprintf(results, 60, "Magnitude : \n%lu",mag);  
-    snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
+    snprintf(results, 60, "right_freq = %u\n",ff);  //ancien code pour afficher juste les coordonnées
     text_layer_set_text(pedometer_layer, results);
 }
 
@@ -222,7 +220,7 @@ static void init(void) {
     
   
     //****************************************************************
-    uint32_t num_samples = 25;
+    uint32_t num_samples = 32;
   
     //Allow accelerometer event
     accel_data_service_subscribe(num_samples, accel_data_handler);
@@ -260,4 +258,5 @@ int main(void) {
     app_event_loop();
     deinit();
 }
+
 
