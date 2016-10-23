@@ -1,7 +1,7 @@
 clc; clear all; close all;
 
 % Loads data file
-load('Data_Matlab_TP/dataTP2.mat');
+load('Data_Matlab_TP/dataTP14.mat');
 
 % Get x,y,z datas at 200 Hz
 xdata_200Hz = dataTP.data(:,1);
@@ -78,6 +78,8 @@ window_end = 5;
 t_tot_fft   = 5;  % total time for fft in sec
 kk_max = floor(t_end/t_tot_fft);
 
+f_array = [];
+
 for kk = 0:kk_max
 t_start_fft = kk*t_tot_fft; % start time for fft in sec
 
@@ -110,9 +112,15 @@ else
     r_step_f = 0; % modify this - use previous or next step to compute freq
 end
 
-step_f = (length(id_left)+length(id_right)-1)/...
+if (length(id_right) > 1 && length(id_left) > 1)
+    step_f = (length(id_left)+length(id_right)-1)/...
          (max(t_left(id_left(end)),t_right(id_right(end)))- ...
           min(t_left(id_left(1)),t_right(id_right(1))));
+else
+    step_f = 0;
+end
+
+f_array = [f_array, step_f];
 
 % Computes fft for t_tot_fft time of samples
 %L = length(data_norm_sq_mean(id_s:id_e));
@@ -148,3 +156,7 @@ disp(t_start_fft);
 pause;
 %close all;
 end
+
+%figure;
+% t_freq = 0:t_tot_fft:kk_max*t_tot_fft;
+% plot(t_freq,f_array);
