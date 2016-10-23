@@ -5,7 +5,7 @@
         fix_fft() - perform fast Fourier transform.
 
         if n>0 FFT is done, if n<0 inverse FFT is done
-        fr[bloc+n],fi[bloc+n] are real,imaginary arrays, INPUT AND RESULT.
+        fr[n],fi[n] are real,imaginary arrays, INPUT AND RESULT.
         size of data = 2**m
         set inverse to 0=dft, 1=idft
 */
