@@ -28,6 +28,61 @@ Window *main_window;
 TextLayer *background_layer;
 TextLayer *pedometer_layer;
 
+uint16_t n_steps = 0;
+uint16_t f_st = 1;
+uint16_t t_call_st = 100; // [ms]
+int temps = 0;
+
+
+
+
+static void fft_callback()
+{
+    if(temps == 10)
+    {
+        f_st = 2;
+    }
+    
+    temps ++;
+    app_timer_register(1000, fft_callback, NULL);
+    return;
+}
+
+
+
+
+static void step_callback()
+{  
+    static int frac_step = 0;
+  
+    frac_step += f_st*t_call_st;
+  
+    if(frac_step >= (1000))
+    {
+        frac_step -= 1000.0;
+        n_steps++;
+    }
+
+    //tab of chars to print the results on the watch
+    static char results[60];
+  
+   //APP_LOG(APP_LOG_LEVEL_INFO, "N step : %u at time: %u, f_st = %u\n", n_steps, t_st, f_st);
+    snprintf(results, 60, "N : %u, f_st = %u\n, frac_step = %d\n, temps = %d", n_steps, f_st, frac_step, temps);  //ancien code pour afficher juste les coordonnées
+    text_layer_set_text(pedometer_layer, results);
+    
+  
+    //Timer
+    if(temps < 20)
+    {
+      app_timer_register(t_call_st, step_callback, NULL);
+    }
+    
+    return;
+}
+
+
+
+
 
 
 
@@ -38,24 +93,23 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
     mobile_mean_accel(data,num_samples,&mag);
   
   
-    //ancien code pour afficher juste les coordonnées au carré
+   //ancien code pour afficher juste les coordonnées au carré
     //Read samples 0's x, y and z values
-    int32_t x = abs(data[0].x) * abs(data[0].x);
-    int32_t y = abs(data[0].y) * abs(data[0].y);
-    int32_t z = abs(data[0].z) * abs(data[0].z);
-  
+   // int32_t x = abs(data[0].x) * abs(data[0].x);
+   // int32_t y = abs(data[0].y) * abs(data[0].y);
+    //int32_t z = abs(data[0].z) * abs(data[0].z);
 
     //tab of chars to print the results on the watch
-    static char results[60];
+    //static char results[60];
   
     //Print the results in the LOG
     //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+   // APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag); 
     
     //Print the results on the watch
     //snprintf(results, 60, "Magnitude : \n%lu",mag);  
-    snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
-    text_layer_set_text(pedometer_layer, results);
+   // snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %d",x, y, z, mag);
+   // text_layer_set_text(pedometer_layer, results);
 }
 
 
@@ -98,8 +152,8 @@ static void init(void) {
   	// Show the window on the watch, with animated = true
   	window_stack_push(main_window, true);
     
-    // Add a logging meassage (for debug)
-	  APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");
+    /*// Add a logging meassage (for debug)
+	  APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");*/
     
   
     //****************************************************************
@@ -110,6 +164,12 @@ static void init(void) {
     
     //Define accelerometer sampling rate
     accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
+  
+  
+    
+    //Timer
+    app_timer_register(t_call_st, step_callback, NULL);
+    app_timer_register(1000, fft_callback, NULL);
 }
 
 
