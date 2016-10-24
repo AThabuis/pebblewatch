@@ -27,7 +27,7 @@ Date: 09.2016
 #define SAMPLE_RATE 25;	
 #define ID_05 4 //indice du tableau de module de fréquence qui correspond à la premiepre fréquence au dessus de 0.5Hz (0.7812 Hz)
 #define ID_35 18	
-#define THRESHOLD 676 //10000*0.26.^2 Threshold de fréquence minimum // déterminé expérimentalement
+#define THRESHOLD 150 //10000*0.26.^2 Threshold de fréquence minimum // déterminé expérimentalement
 #define M 7			// 128 = 2^7; 
 
 // Declare the main window and two text layers
@@ -41,6 +41,7 @@ short gbloc = 0;			// point de départ du tableau
 const float df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
 unsigned short Y_freq[128];
 short fi[128];
+short fr[128];
 
 
 // Fonction qui calcule la bonne fréquence après la FFT
@@ -70,7 +71,7 @@ static int16_t freq_calculator(unsigned short* Y_freq)
   	//S'il n'a qu'un seul pic, c'est celui-ci le bon
   	if(L_peak == 1)
 		{
-			right_freq = df*10000*ipeak[0];
+			right_freq = df*100*ipeak[0];
 		}
   	else if(L_peak >1) 
 			{
@@ -86,7 +87,7 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 					}
 				}
       	// Initialisation de la bonne fréquence à celle maximum
-      	right_freq = df*10000*imax_peak;
+      	right_freq = df*100*imax_peak;
 			
 				// Taille des pics accepté à 40%
 				uint16_t Y_max = 0.4*Y_freq[imax_peak];
@@ -98,9 +99,9 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 					{
         		// Recherche la première harmonique du pic max
           	// S'il y en a une, c'est elle la bonne fréquence
-          	if(2*imax_peak-ipeak[k] < 2)
+          	if(2*imax_peak-ipeak[k] < 1)
 						{
-          		right_freq = df*10000*ipeak[k];
+          		right_freq = df*100*ipeak[k];
 						}               
 					}
 				}
@@ -132,28 +133,32 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 	
     for(i=0; i<num_samples; i++)//we make a tabble of magnitude
     {
-			uint32_t temp = (data[i].x)*(data[i].x)
-                                   + (data[i].y)*(data[i].y) 
-                                   + (data[i].z)*(data[i].z);
-					mag_128[i+gbloc] = (short)(temp>>11); 
+			//unsigned int temp 
+				mag_128[i+gbloc] = (data[i].x>>3)*(data[i].x>>3)
+                                   + (data[i].y>>3)*(data[i].y>>3) 
+                                   + (data[i].z>>3)*(data[i].z>>3);
+					//mag_128[i+gbloc] = (short)(temp>>6); 
+			APP_LOG(APP_LOG_LEVEL_INFO, "%u,",mag_128[i+gbloc]);
     }
 		
-		// Se déplace de 32 cases sans jamais dépasser 127
-  	gbloc+=32;
+		// Se déplace de 25 cases sans jamais dépasser 127
+  	gbloc+=25;
 		gbloc%=128; 
 		
 		// Appel FFT sur 128
-		
+	
     for(i=0;i<128;i++)
 		{
 				fi[i]=0;
+				fr[i]=mag_128[(i+gbloc)%128];
+				Y_freq[i]=0; 
 		}
 		
-		fix_fft(Y_freq, mag_128, fi, M, 0, gbloc);
-	
+		fix_fft(Y_freq, fr, fi, M, 0);
+		
 		for(i=ID_05;i<ID_35;i++)
 		{
-			APP_LOG(APP_LOG_LEVEL_INFO, "ID_0%d = %hu\n",i,Y_freq[i]);
+			//APP_LOG(APP_LOG_LEVEL_INFO, "ID_0%d = %hu\n",i,Y_freq[i]);
 		}
 		
 		// Calcule de la bonne fréquence 
@@ -164,7 +169,7 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
   
     //Print the results in the LOG
     //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); //ancien code pour afficher juste les coordonnées
+    //APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
     //snprintf(results, 60, "Magnitude : \n%lu",mag);  
@@ -225,7 +230,7 @@ static void init(void) {
     
   
     //****************************************************************
-    uint32_t num_samples = 32;
+    uint32_t num_samples = 25;
   
     //Allow accelerometer event
     accel_data_service_subscribe(num_samples, accel_data_handler);
