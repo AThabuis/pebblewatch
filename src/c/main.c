@@ -117,8 +117,8 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 //Function called when "num_samples" accelerometer samples are ready
 static void accel_data_handler(AccelData *data, uint32_t num_samples)
 { 
-    static int16_t mag = 0;  
-    mobile_mean_accel(data,num_samples,&mag);
+    //static int16_t mag = 0;  
+    //mobile_mean_accel(data,num_samples,&mag);
   
   	/*
     //ancien code pour afficher juste les coordonnées au carré
@@ -150,7 +150,12 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 		}
 		
 		fix_fft(Y_freq, mag_128, fi, M, 0, gbloc);
-			
+	
+		for(i=ID_05;i<ID_35;i++)
+		{
+			APP_LOG(APP_LOG_LEVEL_INFO, "ID_0%d = %hu\n",i,Y_freq[i]);
+		}
+		
 		// Calcule de la bonne fréquence 
 		int ff = freq_calculator(Y_freq);
 	
@@ -159,7 +164,7 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
   
     //Print the results in the LOG
     //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %u\n",ff); //ancien code pour afficher juste les coordonnées
+    APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); //ancien code pour afficher juste les coordonnées
     
     //Print the results on the watch
     //snprintf(results, 60, "Magnitude : \n%lu",mag);  
@@ -226,7 +231,7 @@ static void init(void) {
     accel_data_service_subscribe(num_samples, accel_data_handler);
     
     //Define accelerometer sampling rate
-    accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
+    accel_service_set_sampling_rate(ACCEL_SAMPLING_25HZ);
 		
 		// init_buffer
 		//init_buf(); 
@@ -258,5 +263,6 @@ int main(void) {
     app_event_loop();
     deinit();
 }
+
 
 
