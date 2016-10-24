@@ -10,105 +10,103 @@
         set inverse to 0=dft, 1=idft
         f_mod is a table with the 
 */
-int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse,int bloc)
+int fix_fft(unsigned short f_mod[], fixed fr[], fixed fi[], int m, int inverse)
 {
-        int mr,nn,i,j,l,k,istep, n, scale, shift;
-        fixed qr,qi,tr,ti,wr,wi;
-
-                n = 1<<m;
-
-        if(n > N_WAVE)
-                return -1;
-
-        mr = 0;
-        nn = n - 1;
-        scale = 0;
-
-        /* decimation in time - re-order data */
-        for(m=1; m<=nn; ++m) {
-                l = n;
-                do {
-                        l >>= 1;
-                } while(mr+l > nn);
-                mr = (mr & (l-1)) + l;
-
-                if(mr <= m) continue;
-                tr = fr[(bloc+m) % TAILLE_TAB];
-                fr[(bloc+m) % TAILLE_TAB] = fr[(bloc+mr) % TAILLE_TAB];
-                fr[(bloc+mr) % TAILLE_TAB] = tr;
-                ti = fi[(bloc+m) % TAILLE_TAB];
-                fi[(bloc+m) % TAILLE_TAB] = fi[(bloc+mr) % TAILLE_TAB];
-                fi[(bloc+mr) % TAILLE_TAB] = ti;
-        }
-
-        l = 1;
-        k = LOG2_N_WAVE-1;
-        while(l < n) {
-                if(inverse) {
-                        /* variable scaling, depending upon data */
-                        shift = 0;
-                        for(i=0; i<n; ++i) {
-                                j = fr[(bloc+i) % TAILLE_TAB];
-                                if(j < 0)
-                                        j = -j;
-                                m = fi[(bloc+i) % TAILLE_TAB];
-                                if(m < 0)
-                                        m = -m;
-                                if(j > 16383 || m > 16383) {
-                                        shift = 1;
-                                        break;
-                                }
-                        }
-                        if(shift)
-                                ++scale;
-                } else {
-                        /* fixed scaling, for proper normalization -
-                           there will be log2(n) passes, so this
-                           results in an overall factor of 1/n,
-                           distributed to maximize arithmetic accuracy. */
-                        shift = 1;
+    int mr,nn,i,j,l,k,istep, n, scale, shift;
+    fixed qr,qi,tr,ti,wr,wi;
+    
+    n = 1<<m;
+    
+    if(n > N_WAVE)
+        return -1;
+    
+    mr = 0;
+    nn = n - 1;
+    scale = 0;
+    
+    /* decimation in time - re-order data */
+    for(m=1; m<=nn; ++m) {
+        l = n;
+        do {
+            l >>= 1;
+        } while(mr+l > nn);
+        mr = (mr & (l-1)) + l;
+        
+        if(mr <= m) continue;
+        tr = fr[m];
+        fr[m] = fr[mr];
+        fr[mr] = tr;
+        ti = fi[m];
+        fi[m] = fi[mr];
+        fi[mr] = ti;
+    }
+    
+    l = 1;
+    k = LOG2_N_WAVE-1;
+    while(l < n) {
+        if(inverse) {
+            /* variable scaling, depending upon data */
+            shift = 0;
+            for(i=0; i<n; ++i) {
+                j = fr[i];
+                if(j < 0)
+                    j = -j;
+                m = fi[i];
+                if(m < 0)
+                    m = -m;
+                if(j > 16383 || m > 16383) {
+                    shift = 1;
+                    break;
                 }
-                /* it may not be obvious, but the shift will be performed
-                   on each data point exactly once, during this pass. */
-                istep = l << 1;
-                for(m=0; m<l; ++m) {
-                        j = m << k;
-                        /* 0 <= j < N_WAVE/2 */
-                        wr =  Sinewave[j+N_WAVE/4];
-                        wi = -Sinewave[j];
-                        if(inverse)
-                                wi = -wi;
-                        if(shift) {
-                                wr >>= 1;
-                                wi >>= 1;
-                        }
-                        for(i=m; i<n; i+=istep) {
-                                j = i + l;
-                                        tr = fix_mpy(wr,fr[(bloc+j) % TAILLE_TAB]) -
-fix_mpy(wi,fi[(bloc+j) % TAILLE_TAB]);
-                                        ti = fix_mpy(wr,fi[(bloc+j) % TAILLE_TAB]) +
-fix_mpy(wi,fr[(bloc+j) % TAILLE_TAB]);
-                                qr = fr[(bloc+i) % TAILLE_TAB];
-                                qi = fi[(bloc+i) % TAILLE_TAB];
-                                if(shift) {
-                                        qr >>= 1;
-                                        qi >>= 1;
-                                }
-                                fr[(bloc+j) % TAILLE_TAB] = qr - tr;
-                                fi[(bloc+j) % TAILLE_TAB] = qi - ti;
-                                fr[(bloc+i) % TAILLE_TAB] = qr + tr;
-                                fi[(bloc+i) % TAILLE_TAB] = qi + ti;
-                                f_mod[(bloc+i) % TAILLE_TAB] = (((int32_t)(fr[(bloc+i) % TAILLE_TAB]) * 
-                                  (int32_t)(fr[(bloc+i) % TAILLE_TAB]))>>15) + 
-                                  (((int32_t)(fi[(bloc+i) % TAILLE_TAB]) * 
-                                    (int32_t)(fi[(bloc+i) % TAILLE_TAB]))>>15);
-                        }
-                }
-                --k;
-                l = istep;
+            }
+            if(shift)
+                ++scale;
+        } else {
+            /* fixed scaling, for proper normalization -
+             there will be log2(n) passes, so this
+             results in an overall factor of 1/n,
+             distributed to maximize arithmetic accuracy. */
+            shift = 1;
         }
-
-        return scale;
+        /* it may not be obvious, but the shift will be performed
+         on each data point exactly once, during this pass. */
+        istep = l << 1;
+        for(m=0; m<l; ++m) {
+            j = m << k;
+            /* 0 <= j < N_WAVE/2 */
+            wr =  Sinewave[j+N_WAVE/4];
+            wi = -Sinewave[j];
+            if(inverse)
+                wi = -wi;
+            if(shift) {
+                wr >>= 1;
+                wi >>= 1;
+            }
+            for(i=m; i<n; i+=istep) {
+                j = i + l;
+                tr = fix_mpy(wr,fr[j]) -
+                fix_mpy(wi,fi[j]);
+                ti = fix_mpy(wr,fi[j]) +
+                fix_mpy(wi,fr[j]);
+                qr = fr[i];
+                qi = fi[i];
+                if(shift) {
+                    qr >>= 1;
+                    qi >>= 1;
+                }
+                fr[j] = qr - tr;
+                fi[j] = qi - ti;
+                fr[i] = qr + tr;
+                fi[i] = qi + ti;
+                f_mod[i] = (((int32_t)(fr[i]) * (int32_t)(fr[i]))>>15) +
+                (((int32_t)(fi[i]) * (int32_t)(fi[i]))>>15);
+            }
+        }
+        --k;
+        l = istep;
+    }
+    
+    return scale;
 }
 
 /*
