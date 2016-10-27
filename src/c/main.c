@@ -29,6 +29,7 @@ Date: 09.2016
 #define ID_35 18	
 #define THRESHOLD 20 //10000*0.26.^2 Threshold de fréquence minimum // déterminé expérimentalement
 #define M 7			// 128 = 2^7; 
+#define T_CALL_ST 1 //[ds] period we call the count step callback
 
 // Declare the main window and two text layers
 Window *main_window;
@@ -43,9 +44,11 @@ unsigned short Y_freq[128];
 short fi[128];
 short fr[128];
 
+uint16_t n_steps = 0;//number of steps
+uint16_t f_st = 0; //steps frequency
+
 
 // Fonction qui calcule le pic maximum
-
 static uint16_t max_peak(unsigned short* Y_freq, int32_t* ipeak,uint16_t L_peak)
 {	
 	uint16_t max_peaki = ipeak[0];
@@ -195,25 +198,26 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 		
 			fix_fft(Y_freq, fr, fi, M, 0);
 		
-			for(i=ID_05;i<ID_35;i++)
+			/*for(i=ID_05;i<ID_35;i++)
 			{
 				APP_LOG(APP_LOG_LEVEL_INFO, "ID_0%d = %hu\n",i,Y_freq[i]);
-			}
+			}*/
 			
 			// Calcule de la bonne fréquence 
 			int ff = freq_calculator(Y_freq);
+      f_st = ff; //update the step frequency
 	
-    	//tab of chars to print the results on the watch
-    	static char results[60];
-  
-    	//Print the results in the LOG
-    	//APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    	APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); //ancien code pour afficher juste les coordonnées
-    
-    	//Print the results on the watch
-    	//snprintf(results, 60, "Magnitude : \n%lu",mag);  
-    	snprintf(results, 60, "right_freq = %u\n",ff);  //ancien code pour afficher juste les coordonnées
-    	text_layer_set_text(pedometer_layer, results);
+	    //tab of chars to print the results on the watch
+	    static char results[60];
+	  
+	    //Print the results in the LOG
+	    //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
+	    //APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); 
+	    
+	    //Print the results on the watch
+	    //snprintf(results, 60, "Magnitude : \n%lu",mag);  
+	    snprintf(results, 60, "right_freq = %u,\n nb_step = %d\n",ff, n_steps);  //ancien code pour afficher juste les coordonnées
+	    text_layer_set_text(pedometer_layer, results);
 			dofft = 2; 
 		}
 		else dofft--; 
@@ -225,18 +229,26 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 		*/
 }
 
-/*
-// ....Pas sûr que sa soit utile.... 
-// Initialisation du buffer à 0	***************************************************
-static void init_buf(void) 
-{
-		int i=0;
-    for(i=0;i<128;i++)
-		{
-				mag_128[i]=0;
-		}
+
+//Function that count the number of steps in comparaison with the step_frequency
+//Also take care of the case when the frequency change "in the middle of a step"
+static void step_callback()
+{  
+    static int frac_step = 0;
+    if(f_st != 0)
+    {
+        frac_step += f_st*T_CALL_ST;
+    
+        if(frac_step >= (1000))
+        {
+            frac_step -= 1000;
+            n_steps++;
+        }
+    }   
+  
+    app_timer_register(T_CALL_ST*100, step_callback, NULL);
+    return;
 }
-*/
 
 
 // Init function called when app is launched
@@ -272,7 +284,7 @@ static void init(void) {
   	window_stack_push(main_window, true);
     
     // Add a logging meassage (for debug)
-	  APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");
+	  //APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");
     
     uint32_t num_samples = 25;
   
@@ -285,13 +297,17 @@ static void init(void) {
 		// init_buffer
 		//init_buf(); 
 		
-		APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
 		/*
 		int Size_left = (int)heap_bytes_free(); 
 		int Size_used = (int)heap_bytes_used();
 		APP_LOG(APP_LOG_LEVEL_INFO, "Memory used: %d\n",Size_used); //ancien code pour afficher juste les coordonnées
 		APP_LOG(APP_LOG_LEVEL_INFO, "Memory left: %d\n",Size_left); //ancien code pour afficher juste les coordonnées
 		*/
+
+	//Timer
+    app_timer_register(T_CALL_ST*100, step_callback, NULL);
+    //app_timer_register(1000, fft_callback, NULL);
 }
 
 
@@ -302,7 +318,7 @@ static void init(void) {
 // deinit function called when the app is closed
 static void deinit(void) {
 	
-    APP_LOG(APP_LOG_LEVEL_INFO, "The END\n"); 
+    //APP_LOG(APP_LOG_LEVEL_INFO, "The END\n"); 
     //Stop Accelerometer
     accel_data_service_unsubscribe();
     
