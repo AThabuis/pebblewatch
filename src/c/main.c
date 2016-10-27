@@ -26,7 +26,7 @@ Date: 09.2016
 #define SIZE_BUFFER 128; 
 #define SAMPLE_RATE 25;	
 #define ID_05 4 //indice du tableau de module de fréquence qui correspond à la premiepre fréquence au dessus de 0.5Hz (0.7812 Hz)
-#define ID_35 16	
+#define ID_35 18	
 #define THRESHOLD 20 //10000*0.26.^2 Threshold de fréquence minimum // déterminé expérimentalement
 #define M 7			// 128 = 2^7; 
 
@@ -45,7 +45,7 @@ short fr[128];
 
 
 // Fonction qui calcule le pic maximum
-/*
+
 static uint16_t max_peak(unsigned short* Y_freq, int32_t* ipeak,uint16_t L_peak)
 {	
 	uint16_t max_peaki = ipeak[0];
@@ -60,7 +60,7 @@ static uint16_t max_peak(unsigned short* Y_freq, int32_t* ipeak,uint16_t L_peak)
 	}
 	return max_peaki;
 }
-*/
+
 
 // Fonction qui calcule la bonne fréquence après la FFT
 // Prend en argument le tableau des modules de FFT
@@ -70,7 +70,7 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 	uint16_t L_peak=0; 		// nombre de pics principaux
 	uint16_t right_freq=0;		// fréquence finale déterminée part la FFT 
 	uint16_t imax_peak=0; 	// indice du pic maximum
-	short k=0;
+	//short k=0;
 	
 	// On ne parcoure que les fréquences intéressantes, de 0.5 à 3.5Hz
 	for(uint16_t l=ID_05; l<ID_35; l++)
@@ -98,7 +98,8 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 			{
      		// Recherche du pic maximum 
 				// max_peak(Y_freq, ipeak, L_peak);
-      	imax_peak = ipeak[0];
+				imax_peak = max_peak(Y_freq,ipeak, L_peak);
+      	/*imax_peak = ipeak[0];
 				
   			for(k=L_peak; k>0;k--)
 				{
@@ -106,14 +107,14 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 					{
     				imax_peak = ipeak[k];
 					}
-				} 
+				}*/
 				
 				if(Y_freq[imax_peak] > THRESHOLD)
 				{
 					// Initialisation de la bonne fréquence à celle maximum
       		right_freq = df*100*imax_peak;
 					
-					
+					/*
 					// Taille des pics accepté à 40%
 					uint16_t Y_max = 0.4*Y_freq[imax_peak];
 					short twofreq = 0; 
@@ -130,7 +131,7 @@ static int16_t freq_calculator(unsigned short* Y_freq)
           			//twofreq = 1; 
 								right_freq = df*100*ipeak[k];
 							}
-							/*
+							
 							if(imax_peak/2-ipeak[k] < 1)
 							{
 								halffreq =1;
@@ -139,9 +140,9 @@ static int16_t freq_calculator(unsigned short* Y_freq)
 								else if(halffreq) 
 									right_freq = df*100*ipeak[k];
 								else right_freq = 0; 
-							}*/
+							}
 						}
-					}
+					}*/
 				}
 			}
   		else right_freq = 0;
