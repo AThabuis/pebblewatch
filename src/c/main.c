@@ -252,8 +252,8 @@ static void step_callback()
 
 
 // Init function called when app is launched
-static void init(void) {
-
+static void init(void) 
+{
   	// Create main Window element and assign to pointer
   	main_window = window_create();
     Layer *window_layer = window_get_root_layer(main_window);  
@@ -316,8 +316,8 @@ static void init(void) {
 
 
 // deinit function called when the app is closed
-static void deinit(void) {
-	
+static void deinit(void) 
+{
     //APP_LOG(APP_LOG_LEVEL_INFO, "The END\n"); 
     //Stop Accelerometer
     accel_data_service_unsubscribe();
@@ -326,14 +326,14 @@ static void deinit(void) {
     text_layer_destroy(background_layer);
 	  text_layer_destroy(pedometer_layer);
     window_destroy(main_window);
-		
 }
 
 
 
 
 
-int main(void) {
+int main(void) 
+{
     init();
     app_event_loop();
     deinit();
