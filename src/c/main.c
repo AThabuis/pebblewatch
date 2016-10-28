@@ -26,6 +26,18 @@ Date: 09.2016
 #include "step_frequency.h"
 
 
+// Declare the main window and two text layers
+Window *main_window;
+TextLayer *background_layer;
+TextLayer *pedometer_layer;
+
+short mag_128[128] = {0}; 	  // Tableau des magnitudes 
+short gbloc = 0;			      // point de départ du tableau
+short fi[128];
+short fr[128];
+
+
+
 //Function called when "num_samples" accelerometer samples are ready
 static void accel_data_handler(AccelData *data, uint32_t num_samples)
 { 	
@@ -75,7 +87,7 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 			
 			// Calcule de la bonne fréquence 
 			int ff = freq_calculator(Y_freq);
-      f_st = ff; //update the step frequency
+      update_freq_step(ff); //update the step frequency
 	
 	    //tab of chars to print the results on the watch
 	    static char results[60];
@@ -86,17 +98,13 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 	    
 	    //Print the results on the watch
 	    //snprintf(results, 60, "Magnitude : \n%lu",mag);  
-	    snprintf(results, 60, "right_freq = %u,\n nb_step = %d\n",ff, n_steps);  //ancien code pour afficher juste les coordonnées
+      uint16_t number_steps = 0;
+      number_steps = get_n_steps();
+	    snprintf(results, 60, "right_freq = %u,\n nb_step = %d\n",ff, number_steps);  //ancien code pour afficher juste les coordonnées
 	    text_layer_set_text(pedometer_layer, results);
 			dofft = 2; 
 		}
 		else dofft--; 
-		/*
-		int Size_left = (int)heap_bytes_free(); 
-		int Size_used = (int)heap_bytes_used();
-		APP_LOG(APP_LOG_LEVEL_INFO, "Memory used: %d\n",Size_used); //ancien code pour afficher juste les coordonnées
-		APP_LOG(APP_LOG_LEVEL_INFO, "Memory left: %d\n",Size_left); //ancien code pour afficher juste les coordonnées
-		*/
 }
 
 
@@ -105,13 +113,6 @@ static void accel_data_handler(AccelData *data, uint32_t num_samples)
 // Init function called when app is launched
 static void init(void) 
 {
-    //Initialization of the globals variables
-    gbloc = 0;			      // point de départ du tableau
-    //df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
-    n_steps = 0;      //number of steps
-    f_st = 0;         //steps frequency
-  
-  
   	// Create main Window element and assign to pointer
   	main_window = window_create();
     Layer *window_layer = window_get_root_layer(main_window);  
@@ -152,7 +153,8 @@ static void init(void)
     //Define accelerometer sampling rate
     accel_service_set_sampling_rate(ACCEL_SAMPLING_25HZ);
 		
-		//APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
+		APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
+  
 		/*
 		int Size_left = (int)heap_bytes_free(); 
 		int Size_used = (int)heap_bytes_used();
@@ -173,7 +175,8 @@ static void init(void)
 // deinit function called when the app is closed
 static void deinit(void) 
 {
-    //APP_LOG(APP_LOG_LEVEL_INFO, "The END\n"); 
+    APP_LOG(APP_LOG_LEVEL_INFO, "The END\n"); 
+  
     //Stop Accelerometer
     accel_data_service_unsubscribe();
     

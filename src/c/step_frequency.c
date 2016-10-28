@@ -2,6 +2,27 @@
 #include "step_frequency.h"
 #include "variables.h"
 
+// Variables globales 
+const float df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
+uint16_t f_st = 0; //steps frequency
+uint16_t n_steps = 0;//number of steps
+
+
+
+//update the step's frequency in the module 
+void update_freq_step(uint16_t freq)
+{
+  f_st = freq;
+}
+
+
+
+//return the number of steps done
+uint16_t get_n_steps()
+{
+  return n_steps;
+}
+
 
 
 // Fonction qui calcule le pic maximum
@@ -19,6 +40,7 @@ uint16_t max_peak(unsigned short* Y_freq, int32_t* ipeak,uint16_t L_peak)
 	}
 	return max_peaki;
 }
+
 
 
 // Fonction qui calcule la bonne fréquence après la FFT
