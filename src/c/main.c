@@ -155,12 +155,12 @@ static void init(void)
 		
 		APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
   
-		/*
+		
 		int Size_left = (int)heap_bytes_free(); 
 		int Size_used = (int)heap_bytes_used();
 		APP_LOG(APP_LOG_LEVEL_INFO, "Memory used: %d\n",Size_used); //ancien code pour afficher juste les coordonnées
 		APP_LOG(APP_LOG_LEVEL_INFO, "Memory left: %d\n",Size_left); //ancien code pour afficher juste les coordonnées
-		*/
+		
 
 	//Timer
     app_timer_register(T_CALL_ST*100, step_callback, NULL);

@@ -148,7 +148,11 @@ void step_callback()
             frac_step -= 1000;
             n_steps++;
         }
-    }   
+    }
+    else 
+    {
+      frac_step = 0;
+    }
   
     app_timer_register(T_CALL_ST*100, step_callback, NULL);
     return;
