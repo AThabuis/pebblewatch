@@ -1,12 +1,12 @@
 /*---------------------------------------------------------------------------
+
 Template for TP of the course "System Engineering" 2016, EPFL
 
-Authors: Flavien Bardyn & Martin Savary
+Authors: Adrien Thabuis & Antoine Laurens & J.F. B.
 Version: 1.0
-Date: 10.08.2016
+Date: 09.2016
 
-Use this "HelloWorld" example as basis to code your own app, which should at least 
-count steps precisely based on accelerometer data. 
+
 
 - Add the accelerometer data acquisition
 - Implement your own pedometer using these data
@@ -17,273 +17,322 @@ count steps precisely based on accelerometer data.
 - Try to use your imagination and not google (we already did it, and it's disappointing!)
   to offer us a smart and original solution of pedometer
 
-Don't hesitate to ask us questions.
-Good luck and have fun!
 ---------------------------------------------------------------------------*/
 
 // Include Pebble library
 #include <pebble.h>
-
+#include "variables.h"
+#include "fourier.h"
+#include "step_frequency.h"
 
 
 // Declare the main window and two text layers
 Window *main_window;
+Window *text_window;
+Window *user_height_window;
+
+MenuLayer *main_menu_layer;
+TextLayer *text_layer;
+TextLayer *height_m;
+TextLayer *height_cm;
 TextLayer *background_layer;
-TextLayer *first_layer;
-TextLayer *second_layer;
-static BitmapLayer *batman_layer;
-static GBitmap* batman;
+TextLayer *pedometer_layer;
 
-static GBitmapSequence *s_sequence;
-static GBitmap *s_bitmap;
-static BitmapLayer *s_bitmap_layer;
+short mag_128[128] = {0};     // Tableau des magnitudes 
+short gbloc = 0;            // point de départ du tableau
+short fi[128];
+short fr[128];
 
-static void timer_handler(void *context)
+void open_main_window(void);
+void close_main_window(void);
+void open_text_window(char *text);
+void close_text_window(void);
+void open_user_height_window(void);
+void close_user_height_window(void);
+
+int user_height_m  = 1;
+int user_height_cm = 70;
+int user_min_height = 70;
+
+enum Menu_title {START_COUNT, CHANGE_HEIGHT, RESET};
+void update_user_height_display(void)
 {
-  uint32_t next_delay;
+    if (user_height_cm < 10)
+    {
+      APP_LOG(APP_LOG_LEVEL_INFO, "Size:%dm0%d\n",user_height_m,user_height_cm);
+    }
+    else
+    {
+      APP_LOG(APP_LOG_LEVEL_INFO, "Size:%dm%d\n",user_height_m,user_height_cm);
+    }
+    static char m[5];
+    static char cm[5];
+  
+    snprintf(m, 5, "%dm",user_height_m);
+    snprintf(cm, 5, "%d",user_height_cm);
+  
+    text_layer_set_text(height_m, m);
+    text_layer_set_text(height_cm, cm);
+}
 
-  // Advance to the next APNG frame, and get the delay for this frame
-  if(gbitmap_sequence_update_bitmap_next_frame(s_sequence, s_bitmap, &next_delay))
+void down_single_click_handler(ClickRecognizerRef recognizer, void *context)
+{
+  Window *window = (Window *)context;
+  
+    if (user_height_m*100+user_height_cm <= user_min_height)
+    {
+        return;  
+    }
+    if(user_height_m >= 0 && user_height_cm-5 < 0)
+    {
+        if(user_height_m == 0)
+        {
+            user_height_cm = 0;
+        }
+        else
+        {
+          user_height_cm = 95;
+          user_height_m--;
+        }
+    }
+    else
+    {
+        user_height_cm -= 5;  
+    }
+    update_user_height_display();
+}
+
+void select_single_click_handler(ClickRecognizerRef recognizer, void *context)
+{
+    window_stack_push(user_height_window, false);
+    window_stack_push(main_window, true);
+}
+
+void up_single_click_handler(ClickRecognizerRef recognizer, void *context)
+{
+  Window *window = (Window *)context;
+  
+  if(user_height_m!= 3 && user_height_cm+5 >= 100)
+    {
+        if(user_height_m == 2)
+        {
+            user_height_cm = 95;
+        }
+        else
+        {
+          user_height_cm = 0;
+          user_height_m++;
+        }
+    }
+  else
   {
-    // Set the new frame into the BitmapLayer
-    bitmap_layer_set_bitmap(s_bitmap_layer, s_bitmap);
-    layer_mark_dirty(bitmap_layer_get_layer(s_bitmap_layer));
-    
-    APP_LOG(APP_LOG_LEVEL_INFO, "YOP");
-    
-    // Timer for that frame's delay
-    app_timer_register(next_delay, timer_handler, NULL);
+      user_height_cm += 5;
   }
+    update_user_height_display();
 }
 
+void config_provider(Window *window) {
+  // single click
+  window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
+  window_single_click_subscribe(BUTTON_ID_SELECT, select_single_click_handler);
+  window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
+}
 
-
-
-static void mobile_mean_accel(AccelData *data, uint32_t num_samples, uint32_t *mag)
+uint16_t get_num_rows_callback( MenuLayer *menu_layer, 
+                                uint16_t section_index,
+                                void *context)
 {
-    static int32_t last_value1 = 0;  //second last value for the mobile mean for the last call
-    static int32_t last_value2 = 0; //last value for the mobile mean for the last call 
-    
-    int32_t future_value1 = 0;
-    int32_t future_value2 = 0; //pour ne pas écraser les données, dû au sens de rotation du buffer
-  
-    int32_t data_mag[num_samples];
-    uint16_t i = 0;
-  
-    //use of abs() because oddly the multiplication keeps the sign of the variable here
-    for(i=0; i<num_samples; i++)//we make a tabble of magnitude
-    {
-        /*data_mag[i] = (int32_t) sqrt((abs((data[i].x)*(data[i].x)) 
-                                   + abs((data[i].y)*(data[i].y)) 
-                                   + abs((data[i].z)*(data[i].z))) / 3);*/
-        data_mag[i] = abs((data[i].x)*(data[i].x)) 
-                                   + abs((data[i].y)*(data[i].y)) 
-                                   + abs((data[i].z)*(data[i].z));
-    }
-  
-    future_value1 = data_mag[num_samples - 2];//second-last data of the table
-    future_value2 = data_mag[num_samples - 1];//last data of the table
-  
-    for(i=0; i<num_samples; i++)
-    {
-      /*La moyenne mobile part du premier élément du buffer actuel pour aller au dernier élément.
-      La moyenne se faisant sur 3 éléments, lorsque l'on se trouve dans le haut (Premier élément puis le second 
-      élément) on utilise les deux derniers éléments du précédent buffer (nommé last_value1/2) pour 
-      effectuer la moyenne */
-      if(i==0)//1er élément du buffer (moy avec les deux dernières valeurs de l'ancien buffer)
-      {
-         data_mag[0]=
-            (last_value1 + last_value2 + data_mag[0]) / 3;
-      }
-      else if(i == 1)//2eme élément du buffer (moy avec la dernière valeur de l'ancien buffer et le premier élément du buffer actuel)
-      {
-          data_mag[1]=
-            (last_value2  + data_mag[0] + data_mag[1]) / 3;
-      }
-      else//Pour le reste du buffer
-      {
-          data_mag[i]=
-            (data_mag[i-2] + data_mag[i-1] + data_mag[i]) / 3;
-      }
-    }
-    
-    //On attribut les deux dernières valeurs de l'ancien buffer sauvegardées à last_value
-    last_value1=future_value1;
-    last_value2=future_value2;  
-  
-  
-    //magnitude a pour valeur le dernier élément du tableau
-    *mag = data_mag[num_samples-1];
+  const uint16_t num_rows = 5;
+  return num_rows;
 }
 
+void draw_row_callback( GContext *ctx, const Layer *cell_layer, 
+                        MenuIndex *cell_index,
+                        void *context)
+{
+  static char s_buff[16];
+  
+  switch (cell_index->row)
+  {
+      case START_COUNT:
+          snprintf(s_buff, sizeof(s_buff), "Start");
+          break;
+      
+      case CHANGE_HEIGHT:
+          snprintf(s_buff, sizeof(s_buff), "Change height");
+          break;
+    
+      case RESET:
+          snprintf(s_buff, sizeof(s_buff), "Reset");
+          break;
+    
+      default:
+          snprintf(s_buff, sizeof(s_buff), "Row %d", (int)cell_index->row);
+          break;
+  }
 
+  // Draw this row's index
+  menu_cell_basic_draw(ctx, cell_layer, s_buff, NULL, NULL);
+}
 
+int16_t get_cell_height_callback( struct MenuLayer *menu_layer,
+                                  MenuIndex *cell_index,
+                                  void *context)
+{
+  const int16_t cell_height = 44;
+  return cell_height;
+}
 
+void select_callback( struct MenuLayer *menu_layer,
+                      MenuIndex *cell_index,
+                      void *context)
+{
+  // Do something in response to the button press
+  switch (cell_index->row)
+  {
+    case START_COUNT:
+      APP_LOG(APP_LOG_LEVEL_INFO, "Index 0\n");
+      open_text_window("Start counting");
+      break;
+    case CHANGE_HEIGHT:
+      APP_LOG(APP_LOG_LEVEL_INFO, "Index 1\n");
+      open_user_height_window(); 
+      break;
+    case RESET:
+      APP_LOG(APP_LOG_LEVEL_INFO, "Index 2\n");
+      open_text_window("Reset");
+      break;
+    case 3:
+      APP_LOG(APP_LOG_LEVEL_INFO, "Index 3\n");
+      open_text_window("Bon....");
+      break;
+    case 4:
+      APP_LOG(APP_LOG_LEVEL_INFO, "Index 4\n");
+      open_text_window("SUpEr");
+      break;
+    default:
+      APP_LOG(APP_LOG_LEVEL_INFO, "Default\n");
+      break;
+  }
+
+}
 
 
 
 //Function called when "num_samples" accelerometer samples are ready
 static void accel_data_handler(AccelData *data, uint32_t num_samples)
-{ 
-    //static uint32_t mag = 0;
-    //static uint32_t mag1 = 0;
-    //static uint32_t mag2 = 0;
-
-    //mobile_mean_accel(data,num_samples,&mag);
-    //mag += 1;
-    //mag1 = mag % 60;
-    //mag2 = mag / 60;
+{   
+    //APP_LOG(APP_LOG_LEVEL_INFO, "Event data\n"); //ancien code pour afficher juste les coordonnées
   
-    //ancien code pour afficher juste les coordonnées au carré
-    //Read samples 0's x, y and z values
-    /* int32_t x = abs(data[0].x) * abs(data[0].x);
-    int32_t y = abs(data[0].y) * abs(data[0].y);
-    int32_t z = abs(data[0].z) * abs(data[0].z); */
+    uint16_t j;
+    gbloc = 0;
+    static short dofft = 2;       // faire la fft tous les 75 datas
   
-
-    //tab of chars to print the results on the watch
-    //static char results[60];
-  
-    //Print the results in the LOG
-    //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-    //APP_LOG(APP_LOG_LEVEL_INFO, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag); //ancien code pour afficher juste les coordonnées
+    for(j=0; j<num_samples; j++)  //we make a table of magnitude
+    {
+      
+      unsigned int temp = (data[j].x)*(data[j].x)
+                                   + (data[j].y)*(data[j].y) 
+                                   + (data[j].z)*(data[j].z);
+      // to avoid overflows, we just take the most significant bits
+      if((temp>>6)>32767)
+        temp = 32767; 
+      
+      else  temp = temp>>6; 
+      
+          mag_128[(j+gbloc)%128] = (short)(temp); 
+          //APP_LOG(APP_LOG_LEVEL_INFO, "%u,",temp);
+    }
     
-    //Print the results on the watch
-    //snprintf(results, 60, "%lu:%lu",mag2,mag1);
-    //snprintf(results, 60, "x2 : %lu, y2 : %lu,\nz2 : %lu\n, mag %lu",x, y, z, mag);  //ancien code pour afficher juste les coordonnées
-    //text_layer_set_text(first_layer, results);
+    // Se déplace de 25 cases sans jamais dépasser 127
+    gbloc+=25;
+    gbloc%=128; 
+  
+    int16_t i = 0; 
+    // Appel FFT sur 128, toutes les 50 datas pour plus de précisions
+    if(!dofft)
+    {
+      for(i=127;i>=0;i--)
+      {
+        fi[i]=0;
+        fr[i]=mag_128[(i+gbloc)%128];
+        //Y_freq[i]=0; 
+      }
+    
+      fix_fft(Y_freq, fr, fi, M, 0);
+    
+      /*for(i=ID_05;i<ID_35;i++)
+      {
+        APP_LOG(APP_LOG_LEVEL_INFO, "ID_0%d = %hu\n",i,Y_freq[i]);
+      }*/
+      
+      // Calcule de la bonne fréquence 
+      int ff = freq_calculator(Y_freq);
+      update_freq_step(ff); //update the step frequency
+  
+      //tab of chars to print the results on the watch
+      static char results[60];
+    
+      //Print the results in the LOG
+      //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
+      //APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); 
+      
+      //Print the results on the watch
+      //snprintf(results, 60, "Magnitude : \n%lu",mag);  
+      uint16_t number_steps = 0;
+      number_steps = get_n_steps();
+      snprintf(results, 60, "right_freq = %u,\n nb_step = %d\n",ff, number_steps);  //ancien code pour afficher juste les coordonnées
+      text_layer_set_text(pedometer_layer, results);
+      dofft = 2; 
+    }
+    else dofft--; 
 }
 
-  static void select_click_handler_select(ClickRecognizerRef recognizer, void *context) {
-    // A single click has just occured
-    APP_LOG(APP_LOG_LEVEL_INFO, "Select");
-    
-    uint32_t first_delay_ms = 10;
 
-    // Schedule a timer to advance the first frame
-    app_timer_register(first_delay_ms, timer_handler, NULL);
-    
-    layer_set_hidden(text_layer_get_layer(background_layer), true);
-    layer_set_hidden(text_layer_get_layer(first_layer), true);
-    layer_set_hidden(text_layer_get_layer(second_layer), true);
-    //layer_set_hidden(bitmap_layer_get_layer(batman_layer), false);
-  }
-  static void select_click_handler_up(ClickRecognizerRef recognizer, void *context) {
-    // A single click has just occured
-    APP_LOG(APP_LOG_LEVEL_INFO, "Up");
-    
-    text_layer_set_background_color(background_layer, GColorBlack);
-    layer_set_hidden(text_layer_get_layer(background_layer), false);
-    layer_set_hidden(text_layer_get_layer(first_layer), false);
-    layer_set_hidden(text_layer_get_layer(second_layer), true);
-    layer_set_hidden(bitmap_layer_get_layer(batman_layer), true);
 
-  }
-  static void select_click_handler_down(ClickRecognizerRef recognizer, void *context) {
-    // A single click has just occured
-    APP_LOG(APP_LOG_LEVEL_INFO, "Down");
-    
-    text_layer_set_background_color(background_layer, GColorWhite);
-    layer_set_hidden(text_layer_get_layer(background_layer), false);
-    layer_set_hidden(text_layer_get_layer(first_layer), true);
-    layer_set_hidden(text_layer_get_layer(second_layer), false);
-    layer_set_hidden(bitmap_layer_get_layer(batman_layer), true);
-  }
-
-  static void click_config_provider(void *context) {
-    // Subcribe to button click events here
-    ButtonId id_select = BUTTON_ID_SELECT;  // The Select button
-    ButtonId id_up   = BUTTON_ID_UP;  // The Up button
-    ButtonId id_down = BUTTON_ID_DOWN;  // The Down button
-
-    window_single_click_subscribe(id_select, select_click_handler_select);
-    window_single_click_subscribe(id_up, select_click_handler_up);
-    window_single_click_subscribe(id_down, select_click_handler_down);
-  }
 
 // Init function called when app is launched
-static void init(void) {
-
-  	// Create main Window element and assign to pointer
-  	main_window = window_create();
-    Layer *window_layer = window_get_root_layer(main_window);  
-    GRect bounds = layer_get_bounds(window_layer);
+static void init(void) 
+{
+    // Create background Layer
+    //background_layer = text_layer_create(GRect( 0, 0, 144, 168));
+    // Setup background layer color (black)
+    //text_layer_set_background_color(background_layer, GColorClear);
   
-    // Use this provider to add button click subscriptions
-    window_set_click_config_provider(main_window, click_config_provider);
-
-
-		// Create background Layer
-		background_layer = text_layer_create(GRect( 0, 0, 144, 168));
-		// Setup background layer color (black)
-		text_layer_set_background_color(background_layer, GColorBlack);
-
-    batman = gbitmap_create_with_resource(RESOURCE_ID_BATMAN);
-    
-    // Create sequence
-    s_sequence = gbitmap_sequence_create_with_resource(RESOURCE_ID_BATMAN_A);
-  
-    // Create blank GBitmap using APNG frame size
-    GSize frame_size = gbitmap_sequence_get_bitmap_size(s_sequence);
-    s_bitmap = gbitmap_create_blank(frame_size, GBitmapFormat8Bit);
-  
-		// Create text Layer
-		//helloWorld_layer = text_layer_create(GRect( 20, 65, 100, 20));
+    // Create text Layer
+    //helloWorld_layer = text_layer_create(GRect( 20, 65, 100, 20));
     // Create the TextLayer with specific bounds
-    first_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
-  
-    second_layer = text_layer_create(
-      GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
-  
-    batman_layer = bitmap_layer_create(
-      GRect(10,10,88,50));
-    bitmap_layer_set_compositing_mode(batman_layer, GCompOpSet);
-    bitmap_layer_set_bitmap(batman_layer,batman);
-  
-		// Setup layer Information
-		text_layer_set_background_color(first_layer, GColorClear);
-		text_layer_set_text_color(first_layer, GColorWhite);	
-		text_layer_set_font(first_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  	text_layer_set_text_alignment(first_layer, GTextAlignmentCenter);
-  
-  	// Setup layer Information
-		text_layer_set_background_color(second_layer, GColorClear);
-		text_layer_set_text_color(second_layer, GColorBlack);	
-		text_layer_set_font(second_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  	text_layer_set_text_alignment(second_layer, GTextAlignmentCenter);
-  
-    bitmap_layer_set_background_color(batman_layer, GColorClear);
-
-  	// Add layers as childs layers to the Window's root layer
-    layer_add_child(window_layer, text_layer_get_layer(background_layer));
-	  layer_add_child(window_layer, text_layer_get_layer(first_layer));
-    layer_add_child(window_layer, text_layer_get_layer(second_layer));
-    layer_add_child(window_layer, bitmap_layer_get_layer(batman_layer));
+    //pedometer_layer = text_layer_create(
+    //  GRect(0, PBL_IF_ROUND_ELSE(58, 52), bounds.size.w, 50));
     
-    char first[60] = "First";
-    text_layer_set_text(first_layer, first);
-    char second[60] = "Second";
-    text_layer_set_text(second_layer, second);
-    layer_set_hidden(text_layer_get_layer(second_layer), true);
-    layer_set_hidden(bitmap_layer_get_layer(batman_layer), true);
+    // Setup layer Information
+    //text_layer_set_background_color(pedometer_layer, GColorClear);
+    //text_layer_set_text_color(pedometer_layer, GColorWhite);  
+    //text_layer_set_font(pedometer_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+    //text_layer_set_text_alignment(pedometer_layer, GTextAlignmentCenter);
 
-  
-  	// Show the window on the watch, with animated = true
-  	window_stack_push(main_window, true);
+    // Add layers as childs layers to the Window's root layer
+    // layer_add_child(window_layer, text_layer_get_layer(background_layer));
+    // layer_add_child(window_layer, text_layer_get_layer(pedometer_layer));
     
     // Add a logging meassage (for debug)
-	  APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");
+    //APP_LOG(APP_LOG_LEVEL_DEBUG, "Just write my first app!");
     
-  
-    //****************************************************************
-    uint32_t num_samples = 25;
+    //uint32_t num_samples = 25;
   
     //Allow accelerometer event
-    accel_data_service_subscribe(num_samples, accel_data_handler);
+    //accel_data_service_subscribe(num_samples, accel_data_handler);
     
     //Define accelerometer sampling rate
-    accel_service_set_sampling_rate(ACCEL_SAMPLING_50HZ);
+    //accel_service_set_sampling_rate(ACCEL_SAMPLING_25HZ);
+    open_main_window();
+    APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
+  
+  //Timer
+    //app_timer_register(T_CALL_ST*100, step_callback, NULL);
+    //app_timer_register(1000, fft_callback, NULL);
+  
+    //layer_set_hidden(text_layer_get_layer(pedometer_layer), true);
 }
 
 
@@ -292,26 +341,170 @@ static void init(void) {
 
 
 // deinit function called when the app is closed
-static void deinit(void) {
-    
-    //Stop Accelerometer
-    accel_data_service_unsubscribe();
-    
-    // Destroy layers and main window 
-    text_layer_destroy(background_layer);
-	  text_layer_destroy(first_layer);
-    text_layer_destroy(second_layer);
-    
-    gbitmap_destroy(batman);
-    bitmap_layer_destroy(batman_layer);
+static void deinit(void) 
+{
+    APP_LOG(APP_LOG_LEVEL_INFO, "The END\n"); 
   
-    window_destroy(main_window);
+    //Stop Accelerometer
+    //accel_data_service_unsubscribe();
+
+    // Destroy layers and main window
+    //text_layer_destroy(background_layer);
+    //text_layer_destroy(pedometer_layer);
+  
+    close_user_height_window();
+    close_text_window();
+    close_main_window();
 }
 
+void open_text_window(char *text)
+{
+  
+    // Create background Layer
+    background_layer = text_layer_create(GRect( 0, 0, 144, 168));
+    // Setup background layer color (black)
+    text_layer_set_background_color(background_layer, GColorBlack);
+  
+    // Create main Window element and assign to pointer
+    text_window = window_create();
+    Layer *window_layer = window_get_root_layer(text_window);  
+    GRect bounds = layer_get_bounds(window_layer);
+  
+    // Create the TextLayer with specific bounds
+    text_layer = text_layer_create(GRect(0,
+                                         PBL_IF_ROUND_ELSE(58, 52),
+                                         bounds.size.w,
+                                         50)
+                                  );
+  
+    // Setup layer Information
+    text_layer_set_background_color(text_layer, GColorClear);
+    text_layer_set_text_color(text_layer, GColorWhite); 
+    text_layer_set_font(text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
+    text_layer_set_text_alignment(text_layer, GTextAlignmentCenter);
+  
+    // Add to the Window
+    layer_add_child(window_layer, text_layer_get_layer(background_layer));
+    layer_add_child(window_layer, text_layer_get_layer(text_layer));
+    
+    // Add text
+    text_layer_set_text(text_layer, text);
+  
+    // Show the window on the watch, with animated = true
+    window_stack_push(text_window, true);
+    return;
+}
 
+void close_text_window(void)
+{
+    // Destroy the MenuLayer
+    text_layer_destroy(text_layer);
+    text_layer_destroy(background_layer);
+  
+    window_destroy(text_window);
+  
+    return;
+}
 
+void open_user_height_window(void)
+{
+    
+    // Create main Window element and assign to pointer
+    user_height_window = window_create();
+    Layer *window_layer = window_get_root_layer(user_height_window);  
+    GRect bounds = layer_get_bounds(window_layer);
+  
+    // Create background Layer
+    background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+    // Setup background layer color (black)
+    text_layer_set_background_color(background_layer, GColorWhite);
+  
+    // Create the TextLayer with specific bounds
+    int padding = 5;
+    int sqr_w = (bounds.size.w-2*padding);
+    int sqr_h = bounds.size.h/3;
+    height_m  = text_layer_create(GRect(padding,padding,sqr_w,sqr_h));
+    height_cm = text_layer_create(GRect(padding,2*padding+sqr_h,sqr_w,sqr_h));
+  
+    // Setup layer Information
+    text_layer_set_background_color(height_m, GColorBlack);
+    text_layer_set_text_color(height_m, GColorWhite); 
+    text_layer_set_font(height_m, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+    text_layer_set_text_alignment(height_m, GTextAlignmentCenter);
+  
+    text_layer_set_background_color(height_cm, GColorBlack);
+    text_layer_set_text_color(height_cm, GColorWhite);  
+    text_layer_set_font(height_cm, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+    text_layer_set_text_alignment(height_cm, GTextAlignmentCenter);
+  
+    // Add to the Window
+    layer_add_child(window_layer, text_layer_get_layer(background_layer));
+    layer_add_child(window_layer, text_layer_get_layer(height_m));
+    layer_add_child(window_layer, text_layer_get_layer(height_cm));
+    
+    // Add text
+    update_user_height_display();
+  
+    window_set_click_config_provider(user_height_window, (ClickConfigProvider) config_provider);
+  
+    // Show the window on the watch, with animated = true
+    window_stack_push(user_height_window, true);
+                        
+    return;
+}
+                        
+void close_user_height_window()
+{
+    // Destroy the MenuLayer
+    text_layer_destroy(height_m);
+    text_layer_destroy(height_cm);
+    text_layer_destroy(background_layer);
+  
+    window_destroy(user_height_window);
+  
+    return;
+}
 
-int main(void) {
+void open_main_window(void)
+{
+    // Create main Window element and assign to pointer
+    main_window = window_create();
+    Layer *window_layer = window_get_root_layer(main_window);  
+    GRect bounds = layer_get_bounds(window_layer);
+  
+    // Create the MenuLayer
+    main_menu_layer = menu_layer_create(bounds);
+
+    // Let it receive click events
+    menu_layer_set_click_config_onto_window(main_menu_layer, main_window);
+
+    // Set the callbacks for behavior and rendering
+    menu_layer_set_callbacks(main_menu_layer, NULL, (MenuLayerCallbacks) {
+    .get_num_rows = get_num_rows_callback,
+    .draw_row = draw_row_callback,
+    .get_cell_height = get_cell_height_callback,
+    .select_click = select_callback,
+    });
+
+    // Add to the Window
+    layer_add_child(window_layer, menu_layer_get_layer(main_menu_layer));
+  
+    // Show the window on the watch, with animated = true
+    window_stack_push(main_window, true);
+    return;
+}
+
+void close_main_window(void)
+{
+    // Destroy the MenuLayer
+    menu_layer_destroy(main_menu_layer);
+    window_destroy(main_window);
+  
+    return;
+}
+
+int main(void) 
+{
     init();
     app_event_loop();
     deinit();
