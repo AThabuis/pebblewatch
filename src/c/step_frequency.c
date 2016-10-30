@@ -1,11 +1,13 @@
 #include <pebble.h>
 #include "step_frequency.h"
 #include "variables.h"
+#include "user_interface.h"
 
 // Variables globales 
 const float df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
 uint16_t f_st = 0; //steps frequency
 uint16_t n_steps = 0;//number of steps
+short reset_called = 0;
 
 
 
@@ -21,6 +23,19 @@ void update_freq_step(uint16_t freq)
 uint16_t get_n_steps()
 {
   return n_steps;
+}
+
+
+
+void reset_n_steps()
+{
+  n_steps = 0;
+  update_reset_called(1);//to close all the interruptions who're still being called
+}
+
+void update_reset_called(short reset_c)
+{
+  reset_called = reset_c;
 }
 
 
@@ -80,50 +95,11 @@ int16_t freq_calculator(unsigned short* Y_freq)
      		// Recherche du pic maximum 
 				// max_peak(Y_freq, ipeak, L_peak);
 				imax_peak = max_peak(Y_freq,ipeak, L_peak);
-      	/*imax_peak = ipeak[0];
-				
-  			for(k=L_peak; k>0;k--)
-				{
-					if(Y_freq[ipeak[k]] > Y_freq[imax_peak])
-					{
-    				imax_peak = ipeak[k];
-					}
-				}*/
 				
 				if(Y_freq[imax_peak] > THRESHOLD)
 				{
 					// Initialisation de la bonne fréquence à celle maximum
       		right_freq = df*100*imax_peak;
-					
-					/*
-					// Taille des pics accepté à 40%
-					uint16_t Y_max = 0.4*Y_freq[imax_peak];
-					short twofreq = 0; 
-					short halffreq = 0; 
-      		for(k =L_peak/2;k>0;k--)
-					{
-      			// Selectionne les pics jusqu'a 40% de la taille du maximum
-        		if(Y_freq[ipeak[k]] > Y_max)
-						{
-        			// Recherche la première harmonique du pic max
-          		// S'il y en a une, c'est elle la bonne fréquence
-          		if(2*imax_peak-ipeak[k] < 2)
-							{
-          			//twofreq = 1; 
-								right_freq = df*100*ipeak[k];
-							}
-							
-							if(imax_peak/2-ipeak[k] < 1)
-							{
-								halffreq =1;
-								if(twofreq)
-									right_freq = df*100*ipeak[k];
-								else if(halffreq) 
-									right_freq = df*100*ipeak[k];
-								else right_freq = 0; 
-							}
-						}
-					}*/
 				}
 			}
   		else right_freq = 0;
@@ -138,6 +114,8 @@ int16_t freq_calculator(unsigned short* Y_freq)
 //Also take care of the case when the frequency change "in the middle of a step"
 void step_callback()
 {  
+  if(reset_called == 0)
+  {
     static int frac_step = 0;
     if(f_st != 0)
     {
@@ -147,15 +125,17 @@ void step_callback()
         {
             frac_step -= 1000;
             n_steps++;
+            update_number_steps_display(n_steps);
         }
     }
     else 
     {
       frac_step = 0;
     }
-  
+    
     app_timer_register(T_CALL_ST*100, step_callback, NULL);
-    return;
+  }
+  return;
 }
 
 
