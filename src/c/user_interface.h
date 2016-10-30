@@ -18,7 +18,11 @@ void open_text_window(char *text);
 void close_text_window(void);
 void open_user_height_window(void);
 void close_user_height_window(void);
+void open_step_display_window(void);
+void close_step_display_window(void);
 
-enum User_height {M, CM};
+void update_number_steps_display(uint16_t);
+
+enum User_height {H_M, H_CM};
 
 #endif

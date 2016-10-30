@@ -1,6 +1,7 @@
 #include <pebble.h>
 #include "step_frequency.h"
 #include "variables.h"
+#include "user_interface.h"
 
 // Variables globales 
 const float df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
@@ -147,6 +148,7 @@ void step_callback()
         {
             frac_step -= 1000;
             n_steps++;
+            update_number_steps_display(n_steps);
         }
     }
     else 

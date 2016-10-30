@@ -1,15 +1,19 @@
 #include <pebble.h>
 #include "user_interface.h"
+#include "step_frequency.h"
+#include "acceleration_process.h"
 
 // Declare the main window and two text layers
 Window *main_window;
 Window *text_window;
+Window *step_display_window;
 Window *user_height_window;
 
 MenuLayer *main_menu_layer;
 TextLayer *text_layer;
 TextLayer *height_m_layer;
 TextLayer *height_cm_layer;
+TextLayer *steps_layer;
 TextLayer *background_layer;
 
 int user_height[2] = {1,70};
@@ -18,57 +22,74 @@ enum Menu_title {START_COUNT, CHANGE_HEIGHT, RESET};
 
 void update_user_height_display(void);
 
+
+
 const int* get_user_height(void)
 {
     return user_height;
 }
+
+
 
 void update_user_height_display(void)
 {
     static char m[5];
     static char cm[5];
   
-    snprintf(m, 5, "%dm",user_height[M]);
+    snprintf(m, 5, "%dm",user_height[H_M]);
     
-    if (user_height[CM] < 10)
+    if (user_height[H_CM] < 10)
     {
-      snprintf(cm, 5, "0%d",user_height[CM]);
+      snprintf(cm, 5, "0%d",user_height[H_CM]);
     }
     else
     {
-      snprintf(cm, 5, "%d",user_height[CM]);
+      snprintf(cm, 5, "%d",user_height[H_CM]);
     }
   
     text_layer_set_text(height_m_layer, m);
     text_layer_set_text(height_cm_layer, cm);
 }
 
+
+
+void update_number_steps_display(const uint16_t steps_number)
+{
+    static char nb_steps_display[10];
+  
+    snprintf(nb_steps_display, 10, "Steps: %u", steps_number);
+    text_layer_set_text(steps_layer, nb_steps_display);
+}
+
+
 void down_single_click_handler(ClickRecognizerRef recognizer, void *context)
 {  
     int user_min_height = 70;
   
-    if (user_height[M]*100+user_height[CM] <= user_min_height)
+    if (user_height[H_M]*100+user_height[H_CM] <= user_min_height)
     {
         return;  
     }
-    if(user_height[M] >= 0 && user_height[CM]-5 < 0)
+    if(user_height[H_M] >= 0 && user_height[H_CM]-5 < 0)
     {
-        if(user_height[M] == 0)
+        if(user_height[H_M] == 0)
         {
-            user_height[CM] = 0;
+            user_height[H_CM] = 0;
         }
         else
         {
-          user_height[CM] = 95;
-          user_height[M]--;
+          user_height[H_CM] = 95;
+          user_height[H_M]--;
         }
     }
     else
     {
-        user_height[CM] -= 5;  
+        user_height[H_CM] -= 5;  
     }
     update_user_height_display();
 }
+
+
 
 void select_single_click_handler(ClickRecognizerRef recognizer, void *context)
 {
@@ -77,26 +98,31 @@ void select_single_click_handler(ClickRecognizerRef recognizer, void *context)
     //close_user_height_window();
 }
 
+
+
 void up_single_click_handler(ClickRecognizerRef recognizer, void *context)
 {
-    if(user_height[M]!= 3 && user_height[CM]+5 >= 100)
+    if(user_height[H_M]!= 3 && user_height[H_CM]+5 >= 100)
     {
-        if(user_height[M] == 2)
+        if(user_height[H_M] == 2)
         {
-            user_height[CM] = 95;
+            user_height[H_CM] = 95;
         }
         else
         {
-          user_height[CM] = 0;
-          user_height[M]++;
+          user_height[H_CM] = 0;
+          user_height[H_M]++;
         }
     }
     else
     {
-        user_height[CM] += 5;
+        user_height[H_CM] += 5;
     }
     update_user_height_display();
 }
+
+
+
 
 void config_provider(Window *window) {
   // single click
@@ -105,6 +131,8 @@ void config_provider(Window *window) {
   window_single_click_subscribe(BUTTON_ID_DOWN, down_single_click_handler);
 }
 
+
+
 uint16_t get_num_rows_callback( MenuLayer *menu_layer, 
                                 uint16_t section_index,
                                 void *context)
@@ -112,6 +140,8 @@ uint16_t get_num_rows_callback( MenuLayer *menu_layer,
   const uint16_t num_rows = 3;
   return num_rows;
 }
+
+
 
 void draw_row_callback( GContext *ctx, const Layer *cell_layer, 
                         MenuIndex *cell_index,
@@ -142,6 +172,8 @@ void draw_row_callback( GContext *ctx, const Layer *cell_layer,
   menu_cell_basic_draw(ctx, cell_layer, s_buff, NULL, NULL);
 }
 
+
+
 int16_t get_cell_height_callback( struct MenuLayer *menu_layer,
                                   MenuIndex *cell_index,
                                   void *context)
@@ -149,6 +181,8 @@ int16_t get_cell_height_callback( struct MenuLayer *menu_layer,
   const int16_t cell_height = 44;
   return cell_height;
 }
+
+
 
 void select_callback( struct MenuLayer *menu_layer,
                       MenuIndex *cell_index,
@@ -159,7 +193,8 @@ void select_callback( struct MenuLayer *menu_layer,
   {
     case START_COUNT:
       APP_LOG(APP_LOG_LEVEL_INFO, "Index 0\n");
-      open_text_window("Start counting");
+      open_step_display_window();
+      init_accel();
       break;
     case CHANGE_HEIGHT:
       APP_LOG(APP_LOG_LEVEL_INFO, "Index 1\n");
@@ -175,6 +210,8 @@ void select_callback( struct MenuLayer *menu_layer,
   }
 
 }
+
+
 
 void open_text_window(char *text)
 {
@@ -210,6 +247,8 @@ void open_text_window(char *text)
     return;
 }
 
+
+
 void close_text_window(void)
 {
     // Destroy the MenuLayer
@@ -220,6 +259,55 @@ void close_text_window(void)
     window_destroy(text_window);
     return;
 }
+
+void open_step_display_window(void)
+{
+  
+    // Create main Window element and assign to pointer
+  	step_display_window = window_create();
+    Layer *window_layer = window_get_root_layer(step_display_window);  
+    GRect bounds = layer_get_bounds(window_layer);
+  
+    // Create background Layer
+		background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+		// Setup background layer color (black)
+		text_layer_set_background_color(background_layer, GColorBlack);
+  
+    // Create the TextLayer with specific bounds
+    steps_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+  
+    // Setup layer Information
+		text_layer_set_background_color(steps_layer, GColorClear);
+		text_layer_set_text_color(steps_layer, GColorWhite);	
+		text_layer_set_font(steps_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+  	text_layer_set_text_alignment(steps_layer, GTextAlignmentCenter);
+  
+    // Add to the Window
+    layer_add_child(window_layer, text_layer_get_layer(background_layer));
+    layer_add_child(window_layer, text_layer_get_layer(steps_layer));
+  
+    // Update number of step display
+    uint16_t n_step = get_n_steps();
+    update_number_steps_display(n_step);
+  
+    // Show the window on the watch, with animated = true
+  	window_stack_push(step_display_window, true);
+    return;
+}
+
+
+void close_step_display_window(void)
+{
+    // Destroy the MenuLayer
+    text_layer_destroy(steps_layer);
+    text_layer_destroy(background_layer);
+    window_stack_push(step_display_window, false);
+  
+    window_destroy(step_display_window);
+    return;
+}
+
+
 
 void open_user_height_window(void)
 {
@@ -268,7 +356,9 @@ void open_user_height_window(void)
                         
     return;
 }
-                        
+
+
+
 void close_user_height_window()
 {
     // Destroy the MenuLayer
@@ -281,6 +371,8 @@ void close_user_height_window()
   
     return;
 }
+
+
 
 void open_main_window(void)
 {
@@ -310,6 +402,8 @@ void open_main_window(void)
   	window_stack_push(main_window, true);
     return;
 }
+
+
 
 void close_main_window(void)
 {
