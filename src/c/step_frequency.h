@@ -20,5 +20,7 @@ void step_callback();
 void update_freq_step(uint16_t);
 
 uint16_t get_n_steps();
+void reset_n_steps();
+void update_reset_called(short); 
 
 #endif 

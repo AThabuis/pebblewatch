@@ -22,6 +22,7 @@ enum Menu_title {START_COUNT, CHANGE_HEIGHT, RESET};
 
 void update_user_height_display(void);
 
+short first_call = 1;
 
 
 const int* get_user_height(void)
@@ -56,8 +57,8 @@ void update_user_height_display(void)
 void update_number_steps_display(const uint16_t steps_number)
 {
     static char nb_steps_display[10];
-  
-    snprintf(nb_steps_display, 10, "Steps: %u", steps_number);
+    
+    snprintf(nb_steps_display, 10, "Steps: %u\n", steps_number);
     text_layer_set_text(steps_layer, nb_steps_display);
 }
 
@@ -194,7 +195,11 @@ void select_callback( struct MenuLayer *menu_layer,
     case START_COUNT:
       APP_LOG(APP_LOG_LEVEL_INFO, "Index 0\n");
       open_step_display_window();
-      init_accel();
+      if(first_call == 1)
+      {
+        init_accel();
+        first_call = 0;
+      }
       break;
     case CHANGE_HEIGHT:
       APP_LOG(APP_LOG_LEVEL_INFO, "Index 1\n");
@@ -202,7 +207,10 @@ void select_callback( struct MenuLayer *menu_layer,
       break;
     case RESET:
       APP_LOG(APP_LOG_LEVEL_INFO, "Index 2\n");
-      open_text_window("Reset");
+      first_call = 1 ;//We can call again for the "first" time the step counter, accelerometer process functions etc ...
+      reset_n_steps();
+      accel_data_service_unsubscribe();//Stop Accelerometer
+      open_text_window("Reset Done");
       break;
     default:
       APP_LOG(APP_LOG_LEVEL_INFO, "Default\n");

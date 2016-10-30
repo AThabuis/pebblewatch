@@ -59,20 +59,6 @@ void accel_data_handler(AccelData *data, uint32_t num_samples)
 			// Calcule de la bonne fréquence 
 			int ff = freq_calculator(Y_freq);
       update_freq_step(ff); //update the step frequency
-	
-	    //tab of chars to print the results on the watch
-	    static char results[60];
-	  
-	    //Print the results in the LOG
-	    //APP_LOG(APP_LOG_LEVEL_INFO, "Magnitude : \n%lu",mag);
-	    //APP_LOG(APP_LOG_LEVEL_INFO, "right_freq = %d\n",ff); 
-	    
-	    //Print the results on the watch
-	    //snprintf(results, 60, "Magnitude : \n%lu",mag);  
-      /*uint16_t number_steps = 0;
-      number_steps = get_n_steps();
-	    snprintf(results, 60, "right_freq = %u,\n nb_step = %d\n",ff, number_steps);  //ancien code pour afficher juste les coordonnées
-	    text_layer_set_text(pedometer_layer, results);*/
       
 			dofft = 2; 
 		}
@@ -93,6 +79,7 @@ void init_accel(void)
   
     //Timer
     app_timer_register(T_CALL_ST*100, step_callback, NULL);
+    update_reset_called(0);//We allow again the interruptions
   
 		APP_LOG(APP_LOG_LEVEL_INFO, "Init accel finished\n");   
 }

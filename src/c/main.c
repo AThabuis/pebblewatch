@@ -24,16 +24,6 @@ Date: 09.2016
 #include "user_interface.h"
 
 
-
-
-// Init function called when app is launched
-static void init(void) 
-{  
-    open_main_window();
-  
-		//APP_LOG(APP_LOG_LEVEL_INFO, "Init finished\n"); 
-}
-
 // deinit function called when the app is closed
 static void deinit(void) 
 {
@@ -51,7 +41,7 @@ static void deinit(void)
 
 int main(void) 
 {
-    init();
+    open_main_window();
     app_event_loop();
     deinit();
 }
