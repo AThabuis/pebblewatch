@@ -3,6 +3,10 @@
 #include "step_frequency.h"
 #include "acceleration_process.h"
 
+
+#define STRIDE_L_FACTOR 0.00414 //average factor to have the stride length with the height of the user in m
+
+
 // Declare the main window and two text layers
 Window *main_window;
 Window *text_window;
@@ -17,18 +21,11 @@ TextLayer *steps_layer;
 TextLayer *background_layer;
 
 int user_height[2] = {1,70};
-
 enum Menu_title {START_COUNT, CHANGE_HEIGHT, RESET};
-
+int distance_travelled = 0;
 void update_user_height_display(void);
 
-short first_call = 1;
-
-
-const int* get_user_height(void)
-{
-    return user_height;
-}
+short first_call = 1;  //pedometer first call (after a reset)
 
 
 
@@ -56,11 +53,33 @@ void update_user_height_display(void)
 
 void update_number_steps_display(const uint16_t steps_number)
 {
-    static char nb_steps_display[10];
+    distance_travelled = (int) (steps_number * (user_height[H_M]*100 + user_height[H_CM]) * STRIDE_L_FACTOR); //in meters
     
-    snprintf(nb_steps_display, 10, "Steps: %u\n", steps_number);
+    static char nb_steps_display[60];
+    if(distance_travelled>=1000)
+    {
+      int kmetres = distance_travelled/1000;
+      int metres = distance_travelled-(1000*kmetres);
+      if(metres<10)
+      {
+        snprintf(nb_steps_display, 60, "Steps:\n%u\nDistance :\n%d.00%d km", steps_number, kmetres, metres);
+      }
+      else if(metres<100)
+      {
+        snprintf(nb_steps_display, 60, "Steps:\n%u\nDistance :\n%d.0%d km", steps_number, kmetres, metres);
+      }
+      else
+      {
+        snprintf(nb_steps_display, 60, "Steps:\n%u\nDistance :\n%d.%d km", steps_number, kmetres, metres);
+      }
+    }
+    else
+    {
+      snprintf(nb_steps_display, 60, "Steps:\n%u\nDistance :\n%d m", steps_number, distance_travelled);
+    }
     text_layer_set_text(steps_layer, nb_steps_display);
 }
+
 
 
 void down_single_click_handler(ClickRecognizerRef recognizer, void *context)
@@ -125,7 +144,8 @@ void up_single_click_handler(ClickRecognizerRef recognizer, void *context)
 
 
 
-void config_provider(Window *window) {
+void config_provider(Window *window) 
+{
   // single click
   window_single_click_subscribe(BUTTON_ID_UP, up_single_click_handler);
   window_single_click_subscribe(BUTTON_ID_SELECT, select_single_click_handler);
@@ -134,9 +154,7 @@ void config_provider(Window *window) {
 
 
 
-uint16_t get_num_rows_callback( MenuLayer *menu_layer, 
-                                uint16_t section_index,
-                                void *context)
+uint16_t get_num_rows_callback( MenuLayer *menu_layer,  uint16_t section_index, void *context)
 {
   const uint16_t num_rows = 3;
   return num_rows;
@@ -144,9 +162,7 @@ uint16_t get_num_rows_callback( MenuLayer *menu_layer,
 
 
 
-void draw_row_callback( GContext *ctx, const Layer *cell_layer, 
-                        MenuIndex *cell_index,
-                        void *context)
+void draw_row_callback( GContext *ctx, const Layer *cell_layer, MenuIndex *cell_index, void *context)
 {
   static char s_buff[16];
   
@@ -168,16 +184,14 @@ void draw_row_callback( GContext *ctx, const Layer *cell_layer,
           snprintf(s_buff, sizeof(s_buff), "Row %d", (int)cell_index->row);
           break;
   }
-
+  
   // Draw this row's index
   menu_cell_basic_draw(ctx, cell_layer, s_buff, NULL, NULL);
 }
 
 
 
-int16_t get_cell_height_callback( struct MenuLayer *menu_layer,
-                                  MenuIndex *cell_index,
-                                  void *context)
+int16_t get_cell_height_callback( struct MenuLayer *menu_layer, MenuIndex *cell_index, void *context)
 {
   const int16_t cell_height = 44;
   return cell_height;
@@ -185,9 +199,7 @@ int16_t get_cell_height_callback( struct MenuLayer *menu_layer,
 
 
 
-void select_callback( struct MenuLayer *menu_layer,
-                      MenuIndex *cell_index,
-                      void *context)
+void select_callback( struct MenuLayer *menu_layer,  MenuIndex *cell_index, void *context)
 {
   // Do something in response to the button press
   switch (cell_index->row)
@@ -210,13 +222,13 @@ void select_callback( struct MenuLayer *menu_layer,
       first_call = 1 ;//We can call again for the "first" time the step counter, accelerometer process functions etc ...
       reset_n_steps();
       accel_data_service_unsubscribe();//Stop Accelerometer
+      distance_travelled = 0;
       open_text_window("Reset Done");
       break;
     default:
       APP_LOG(APP_LOG_LEVEL_INFO, "Default\n");
       break;
   }
-
 }
 
 
@@ -287,7 +299,7 @@ void open_step_display_window(void)
     // Setup layer Information
 		text_layer_set_background_color(steps_layer, GColorClear);
 		text_layer_set_text_color(steps_layer, GColorWhite);	
-		text_layer_set_font(steps_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+		text_layer_set_font(steps_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
   	text_layer_set_text_alignment(steps_layer, GTextAlignmentCenter);
   
     // Add to the Window

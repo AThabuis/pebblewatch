@@ -3,6 +3,7 @@
 #include "variables.h"
 #include "user_interface.h"
 
+
 // Variables globales 
 const float df = 0.1953125; // interval entre 2 fréquences après FFT sur 128 pts. 
 uint16_t f_st = 0; //steps frequency
@@ -120,7 +121,6 @@ void step_callback()
     if(f_st != 0)
     {
         frac_step += f_st*T_CALL_ST;
-    
         if(frac_step >= (1000))
         {
             frac_step -= 1000;

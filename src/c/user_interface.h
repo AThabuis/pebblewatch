@@ -11,7 +11,6 @@ user_interface.h
 #ifndef USER_INTERFACE_H
 #define USER_INTERFACE_H
 
-const int* get_user_height(void);
 void open_main_window(void);
 void close_main_window(void);
 void open_text_window(char *text);
