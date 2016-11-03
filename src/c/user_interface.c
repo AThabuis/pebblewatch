@@ -3,23 +3,24 @@
 #include "step_frequency.h"
 #include "acceleration_process.h"
 
-
 #define STRIDE_L_FACTOR 0.00414 //average factor to have the stride length with the height of the user in m
 
 
 // Declare the main window and two text layers
 Window *main_window;
-Window *text_window;
+Window *reset_window;
 Window *step_display_window;
 Window *user_height_window;
 
 MenuLayer *main_menu_layer;
-TextLayer *text_layer;
+TextLayer *reset_layer;
 TextLayer *height_m_layer;
 TextLayer *height_cm_layer;
 TextLayer *steps_layer;
 TextLayer *background_layer;
 
+
+char* menu_label[4] = {"Start","Step count","Change height","Reset"};
 int user_height[2] = {1,70};
 enum Menu_title {START_COUNT, CHANGE_HEIGHT, RESET};
 int distance_travelled = 0;
@@ -80,7 +81,11 @@ void update_number_steps_display(const uint16_t steps_number)
     text_layer_set_text(steps_layer, nb_steps_display);
 }
 
-
+void reset_callback()
+{
+    close_reset_window();
+    window_stack_push(main_window, true);
+}
 
 void down_single_click_handler(ClickRecognizerRef recognizer, void *context)
 {  
@@ -109,16 +114,11 @@ void down_single_click_handler(ClickRecognizerRef recognizer, void *context)
     update_user_height_display();
 }
 
-
-
 void select_single_click_handler(ClickRecognizerRef recognizer, void *context)
 {
-    //window_stack_push(user_height_window, false);
-    //window_stack_push(main_window, true);
-    //close_user_height_window();
+    close_user_height_window();
+    window_stack_push(main_window, true);
 }
-
-
 
 void up_single_click_handler(ClickRecognizerRef recognizer, void *context)
 {
@@ -169,15 +169,15 @@ void draw_row_callback( GContext *ctx, const Layer *cell_layer, MenuIndex *cell_
   switch (cell_index->row)
   {
       case START_COUNT:
-          snprintf(s_buff, sizeof(s_buff), "Start");
+          snprintf(s_buff, sizeof(s_buff), first_call ? menu_label[0]:menu_label[1]);
           break;
       
       case CHANGE_HEIGHT:
-          snprintf(s_buff, sizeof(s_buff), "Change height");
+          snprintf(s_buff, sizeof(s_buff), menu_label[2]);
           break;
     
       case RESET:
-          snprintf(s_buff, sizeof(s_buff), "Reset");
+          snprintf(s_buff, sizeof(s_buff), menu_label[3]);
           break;
     
       default:
@@ -223,7 +223,7 @@ void select_callback( struct MenuLayer *menu_layer,  MenuIndex *cell_index, void
       reset_n_steps();
       accel_data_service_unsubscribe();//Stop Accelerometer
       distance_travelled = 0;
-      open_text_window("Reset Done");
+      open_reset_window();
       break;
     default:
       APP_LOG(APP_LOG_LEVEL_INFO, "Default\n");
@@ -233,50 +233,50 @@ void select_callback( struct MenuLayer *menu_layer,  MenuIndex *cell_index, void
 
 
 
-void open_text_window(char *text)
+void open_reset_window()
 {
   
     // Create main Window element and assign to pointer
-  	text_window = window_create();
-    Layer *window_layer = window_get_root_layer(text_window);  
+    reset_window = window_create();
+    Layer *window_layer = window_get_root_layer(reset_window);  
     GRect bounds = layer_get_bounds(window_layer);
   
     // Create background Layer
-		background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
-		// Setup background layer color (black)
-		text_layer_set_background_color(background_layer, GColorBlack);
+    background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+    // Setup background layer color (black)
+    text_layer_set_background_color(background_layer, GColorBlack);
   
     // Create the TextLayer with specific bounds
-    text_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+    reset_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
   
     // Setup layer Information
-		text_layer_set_background_color(text_layer, GColorClear);
-		text_layer_set_text_color(text_layer, GColorWhite);	
-		text_layer_set_font(text_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  	text_layer_set_text_alignment(text_layer, GTextAlignmentCenter);
+    text_layer_set_background_color(reset_layer, GColorClear);
+    text_layer_set_text_color(reset_layer, GColorWhite);  
+    text_layer_set_font(reset_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+    text_layer_set_text_alignment(reset_layer, GTextAlignmentCenter);
   
     // Add to the Window
     layer_add_child(window_layer, text_layer_get_layer(background_layer));
-    layer_add_child(window_layer, text_layer_get_layer(text_layer));
+    layer_add_child(window_layer, text_layer_get_layer(reset_layer));
     
     // Add text
-    text_layer_set_text(text_layer, text);
+    text_layer_set_text(reset_layer, "Reset Done!");
+    app_timer_register(1000, reset_callback, NULL);
   
     // Show the window on the watch, with animated = true
-  	window_stack_push(text_window, true);
+    window_stack_push(reset_window, true);
     return;
 }
 
 
 
-void close_text_window(void)
+void close_reset_window(void)
 {
     // Destroy the MenuLayer
-    text_layer_destroy(text_layer);
-    text_layer_destroy(background_layer);
-    window_stack_push(text_window, false);
+    text_layer_destroy(reset_layer);
+    window_stack_push(reset_window, false);
   
-    window_destroy(text_window);
+    window_destroy(reset_window);
     return;
 }
 
@@ -284,23 +284,23 @@ void open_step_display_window(void)
 {
   
     // Create main Window element and assign to pointer
-  	step_display_window = window_create();
+    step_display_window = window_create();
     Layer *window_layer = window_get_root_layer(step_display_window);  
     GRect bounds = layer_get_bounds(window_layer);
   
     // Create background Layer
-		background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
-		// Setup background layer color (black)
-		text_layer_set_background_color(background_layer, GColorBlack);
+    background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+    // Setup background layer color (black)
+    text_layer_set_background_color(background_layer, GColorBlack);
   
     // Create the TextLayer with specific bounds
     steps_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
   
     // Setup layer Information
-		text_layer_set_background_color(steps_layer, GColorClear);
-		text_layer_set_text_color(steps_layer, GColorWhite);	
-		text_layer_set_font(steps_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  	text_layer_set_text_alignment(steps_layer, GTextAlignmentCenter);
+    text_layer_set_background_color(steps_layer, GColorClear);
+    text_layer_set_text_color(steps_layer, GColorWhite);  
+    text_layer_set_font(steps_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
+    text_layer_set_text_alignment(steps_layer, GTextAlignmentCenter);
   
     // Add to the Window
     layer_add_child(window_layer, text_layer_get_layer(background_layer));
@@ -311,7 +311,7 @@ void open_step_display_window(void)
     update_number_steps_display(n_step);
   
     // Show the window on the watch, with animated = true
-  	window_stack_push(step_display_window, true);
+    window_stack_push(step_display_window, true);
     return;
 }
 
@@ -320,7 +320,6 @@ void close_step_display_window(void)
 {
     // Destroy the MenuLayer
     text_layer_destroy(steps_layer);
-    text_layer_destroy(background_layer);
     window_stack_push(step_display_window, false);
   
     window_destroy(step_display_window);
@@ -332,14 +331,14 @@ void close_step_display_window(void)
 void open_user_height_window(void)
 {
     // Create main Window element and assign to pointer
-  	user_height_window = window_create();
+    user_height_window = window_create();
     Layer *window_layer = window_get_root_layer(user_height_window);  
     GRect bounds = layer_get_bounds(window_layer);
   
     // Create background Layer
-		background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
-		// Setup background layer color (black)
-		text_layer_set_background_color(background_layer, GColorWhite);
+    background_layer = text_layer_create(GRect( 0, 0, bounds.size.w, bounds.size.h));
+    // Setup background layer color (black)
+    text_layer_set_background_color(background_layer, GColorWhite);
   
     int padding = 5; // Layer padding
     int sqr_w = (bounds.size.w-2*padding); // layer width
@@ -350,15 +349,15 @@ void open_user_height_window(void)
     height_cm_layer = text_layer_create(GRect(padding,2*padding+sqr_h,sqr_w,sqr_h));
   
     // Setup layer Information
-		text_layer_set_background_color(height_m_layer, GColorBlack);
-		text_layer_set_text_color(height_m_layer, GColorWhite);	
-		text_layer_set_font(height_m_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-  	text_layer_set_text_alignment(height_m_layer, GTextAlignmentCenter);
+    text_layer_set_background_color(height_m_layer, GColorBlack);
+    text_layer_set_text_color(height_m_layer, GColorWhite); 
+    text_layer_set_font(height_m_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+    text_layer_set_text_alignment(height_m_layer, GTextAlignmentCenter);
   
     text_layer_set_background_color(height_cm_layer, GColorBlack);
-		text_layer_set_text_color(height_cm_layer, GColorWhite);	
-		text_layer_set_font(height_cm_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-  	text_layer_set_text_alignment(height_cm_layer, GTextAlignmentCenter);
+    text_layer_set_text_color(height_cm_layer, GColorWhite);  
+    text_layer_set_font(height_cm_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
+    text_layer_set_text_alignment(height_cm_layer, GTextAlignmentCenter);
   
     // Add to the Window
     layer_add_child(window_layer, text_layer_get_layer(background_layer));
@@ -372,7 +371,7 @@ void open_user_height_window(void)
     window_set_click_config_provider(user_height_window, (ClickConfigProvider) config_provider);
   
     // Show the window on the watch, with animated = true
-  	window_stack_push(user_height_window, true);
+    window_stack_push(user_height_window, true);
                         
     return;
 }
@@ -384,7 +383,6 @@ void close_user_height_window()
     // Destroy the MenuLayer
     text_layer_destroy(height_m_layer);
     text_layer_destroy(height_cm_layer);
-    text_layer_destroy(background_layer);
   
     window_stack_push(user_height_window, false);
     window_destroy(user_height_window);
@@ -397,7 +395,7 @@ void close_user_height_window()
 void open_main_window(void)
 {
     // Create main Window element and assign to pointer
-  	main_window = window_create();
+    main_window = window_create();
     Layer *window_layer = window_get_root_layer(main_window);  
     GRect bounds = layer_get_bounds(window_layer);
   
@@ -419,7 +417,7 @@ void open_main_window(void)
     layer_add_child(window_layer, menu_layer_get_layer(main_menu_layer));
   
     // Show the window on the watch, with animated = true
-  	window_stack_push(main_window, true);
+    window_stack_push(main_window, true);
     return;
 }
 

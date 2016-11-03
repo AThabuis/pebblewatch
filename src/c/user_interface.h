@@ -13,8 +13,8 @@ user_interface.h
 
 void open_main_window(void);
 void close_main_window(void);
-void open_text_window(char *text);
-void close_text_window(void);
+void open_reset_window(void);
+void close_reset_window(void);
 void open_user_height_window(void);
 void close_user_height_window(void);
 void open_step_display_window(void);

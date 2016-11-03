@@ -35,7 +35,7 @@ static void deinit(void)
     // Destroy layers and main window
     close_user_height_window();
     close_step_display_window();
-    close_text_window();
+    close_reset_window();
     close_main_window();
 }
 
