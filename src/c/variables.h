@@ -4,11 +4,11 @@
 
 #define SIZE_BUFFER 128 
 #define SAMPLE_RATE 25	
-#define ID_05 4              //indice du tableau de module de fréquence qui correspond à la premiepre fréquence au dessus de 0.5Hz (0.7812 Hz)
-#define ID_35 18	
-#define THRESHOLD 20         //10000*0.26.^2 Threshold de fréquence minimum // déterminé expérimentalement
-#define M 7			             // 128 = 2^7; 
-#define T_CALL_ST 1          //[ds] period we call the count step callback
+#define ID_05 4              
+#define ID_35 18			 //index of the table that corresponds to the first frquency above 0.5Hz (it is 0.7812HZ)
+#define THRESHOLD 20         //10000*0.26.^2 Threshold of the magnitude of the frequency// détermined through exprience
+#define M 7			         // 128 = 2^7; power of 2 corresponding to the number of elements used for the FFT
+#define T_CALL_ST 1          //[ds] period between the calls of the step callback
 
 
 
