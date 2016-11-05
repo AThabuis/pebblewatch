@@ -4,7 +4,7 @@
     "keywords": [],
     "name": "tp-system-engineering",
     "pebble": {
-        "displayName": "TP System Engineering",
+        "displayName": "Pedometer",
         "enableMultiJS": false,
         "messageKeys": [],
         "projectType": "native",
